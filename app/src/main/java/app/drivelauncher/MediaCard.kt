@@ -21,7 +21,7 @@ class MediaCard(private val a: MainActivity, private val big: Boolean, private v
     private val bg = cardBg()
     private var artShown: android.graphics.Bitmap? = null
     private var tinted = false
-    private val title: TextView = a.label(if (big) 20f else 18f, C.TEXT, F.semibold, lines = if (big) 2 else 1)
+    private val title: TextView = a.label(if (big) 20f else 18f, C.TEXT, F.semibold, lines = if (big || roomy) 2 else 1)
     private val sub: TextView = a.label(if (big) 15f else 14f, C.MUTED, F.regular)
     private val src: TextView = a.label(12f, C.MUTED, F.regular)
     private val bar = Bar(a)
@@ -45,7 +45,7 @@ class MediaCard(private val a: MainActivity, private val big: Boolean, private v
     init {
         view.background = bg
         view.pad(if (big) 20f else if (Skin.glass) 20f else 16f)
-        val artSize = if (big) 112f else if (roomy) 140f else 64f
+        val artSize = if (big) 112f else if (roomy) 176f else 64f
         val head = a.hbox(if (big) 16f else if (roomy) 18f else 14f)
         head.addView(art, lp(S.i(artSize), S.i(artSize)))
         val col = a.vbox(if (big || roomy) 4f else 2f)
