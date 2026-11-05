@@ -7,6 +7,7 @@ import org.json.JSONObject
 import java.io.File
 import java.util.Calendar
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 /** Lifetime distance measured by GPS. Can be set to match the car's own odometer. */
 object Odometer {
@@ -70,18 +71,118 @@ class TripDetector(private val startKmh: Float = 8f, private val stopMs: Long = 
 class TripRecord(
     val start: Long, var end: Long, var meters: Double, var movingMs: Long, var maxKmh: Float,
     val startLat: Double, val startLon: Double, var endLat: Double, var endLon: Double, var fuelL: Double,
+    /** hard brakes, hard starts, seconds over the limit; scored = false for drives saved before scoring existed */
+    var hardBrakes: Int = 0, var hardAccels: Int = 0, var speedingS: Int = 0, var scored: Boolean = true,
 ) {
     val avgKmh: Float get() = if (movingMs > 5000) (meters / (movingMs / 1000.0) * 3.6).toFloat() else 0f
+    /** 0–100, or null for old drives. */
+    val score: Int? get() = if (scored) DriveScore.score(meters / 1000.0, hardBrakes, hardAccels, speedingS, movingMs / 1000) else null
 
     fun toJson(): JSONObject = JSONObject().put("s", start).put("e", end).put("m", meters).put("mv", movingMs)
         .put("mx", maxKmh.toDouble()).put("sa", startLat).put("so", startLon).put("ea", endLat).put("eo", endLon).put("f", fuelL)
+        .apply { if (scored) put("hb", hardBrakes).put("ha", hardAccels).put("sp", speedingS) }
 
     companion object {
         fun from(o: JSONObject) = TripRecord(
             o.getLong("s"), o.getLong("e"), o.getDouble("m"), o.getLong("mv"), o.getDouble("mx").toFloat(),
             o.optDouble("sa"), o.optDouble("so"), o.optDouble("ea"), o.optDouble("eo"), o.optDouble("f", 0.0),
+            o.optInt("hb", 0), o.optInt("ha", 0), o.optInt("sp", 0), o.has("hb"),
         )
     }
+}
+
+/**
+ * How smooth a drive was: hard brakes and hard starts (from the speed, once a second) and time over the
+ * speed limit. Pure functions are unit-tested.
+ */
+object DriveScore {
+    /** Hard brake: slowing faster than about 0.3 g; hard start: speeding up faster than about 0.26 g. */
+    const val BRAKE = -3.0f
+    const val ACCEL = 2.6f
+
+    fun score(km: Double, brakes: Int, accels: Int, speedingS: Int, movingS: Long): Int {
+        if (km < 0.3) return 100
+        val events = (8.0 * brakes + 6.0 * accels) * 10.0 / max(10.0, km)
+        val speeding = if (movingS > 60) speedingS.toDouble() / movingS * 40.0 else 0.0
+        return (100.0 - events - speeding).coerceIn(0.0, 100.0).roundToInt()
+    }
+
+    fun label(s: Int): String = when { s >= 90 -> "Smooth"; s >= 75 -> "Good"; s >= 60 -> "Fair"; else -> "Rough" }
+
+    fun tip(t: TripRecord): String {
+        val parts = ArrayList<String>()
+        if (t.hardBrakes > 0) parts.add("${t.hardBrakes} hard ${if (t.hardBrakes == 1) "brake" else "brakes"}: leave more distance and ease off earlier")
+        if (t.hardAccels > 0) parts.add("${t.hardAccels} hard ${if (t.hardAccels == 1) "start" else "starts"}: press the pedal more gently")
+        if (t.movingMs > 60_000 && t.speedingS > 0) parts.add("over the limit for ${max(1, (t.speedingS * 100 / (t.movingMs / 1000)).toInt())}% of the time")
+        return if (parts.isEmpty()) "Very smooth drive — no hard brakes or hard starts." else parts.joinToString("; ").replaceFirstChar { it.uppercase() } + "."
+    }
+
+    /** Live detector: feed one speed sample per second. */
+    class Detector {
+        private val v = FloatArray(3)
+        private var n = 0
+        private var cool = 0
+        /** @return -1 hard brake, 1 hard start, 0 nothing */
+        fun feed(kmh: Float): Int {
+            v[0] = v[1]; v[1] = v[2]; v[2] = kmh
+            if (n < 3) { n++; return 0 }
+            if (cool > 0) { cool--; return 0 }
+            val a = (v[2] - v[0]) / 3.6f / 2f // m/s² over two seconds
+            return when {
+                a <= BRAKE && v[0] > 15f -> { cool = 5; -1 }
+                a >= ACCEL && v[2] > 10f -> { cool = 5; 1 }
+                else -> 0
+            }
+        }
+        fun reset() { n = 0; cool = 0 }
+    }
+}
+
+/** How far the car can go on what is left in the tank. */
+object FuelRange {
+    class Est(val km: Double, val litres: Double, val pct: Double, val approx: Boolean)
+
+    /** Average use in L/100 km: fuel log, else OBD2-measured drives, else a typical value (marked approximate). */
+    fun avgUse(entries: List<FuelEntry>, trips: List<TripRecord>): Pair<Double, Boolean> {
+        FuelStats.avgL100(entries)?.let { return it to false }
+        val t = trips.filter { it.fuelL > 0.05 }
+        val km = t.sumOf { it.meters } / 1000.0
+        if (km >= 30) return t.sumOf { it.fuelL } / km * 100.0 to false
+        return 9.0 to true
+    }
+
+    /** [fuelPct] from OBD2 when the car reports it; otherwise worked out from the last full-tank fill-up. */
+    fun compute(tankL: Double, use: Pair<Double, Boolean>, fuelPct: Float?, entries: List<FuelEntry>, odoKm: Double): Est? {
+        if (tankL <= 0 || use.first <= 0) return null
+        val litres = if (fuelPct != null) fuelPct / 100.0 * tankL else {
+            val byOdo = entries.sortedBy { it.odoKm }
+            val lastFull = byOdo.lastOrNull { it.full } ?: return null
+            val km = odoKm - lastFull.odoKm
+            if (km < 0) return null
+            val added = byOdo.filter { it.odoKm > lastFull.odoKm }.sumOf { it.liters }
+            (tankL - km * use.first / 100.0 + added).coerceIn(0.0, tankL)
+        }
+        return Est(litres / use.first * 100.0, litres, litres / tankL * 100.0, use.second || fuelPct == null)
+    }
+
+    private var cached: Est? = null
+    private var cachedAt = 0L
+
+    /** Current estimate (worked out at most every 5 seconds). */
+    fun now(): Est? {
+        val t = android.os.SystemClock.elapsedRealtime()
+        if (cachedAt != 0L && t - cachedAt < 5000) return cached
+        cachedAt = t
+        cached = try {
+            compute(Prefs.tankL.toDouble(), avgUse(FuelLog.list(), Trips.list()), if (Obd.connected) Obd.v("fuel") else null, FuelLog.list(), Odometer.km)
+        } catch (_: Exception) { null }
+        return cached
+    }
+
+    fun forget() { cachedAt = 0L }
+
+    /** "420 km" / "~420 km" in the display unit. */
+    fun text(e: Est): String = (if (e.approx) "~" else "") + fmt("%,.0f", Units.dist(e.km * 1000))
 }
 
 /** Saves every drive automatically, with its route. Runs in the background service. */
@@ -99,6 +200,7 @@ object Trips {
     private var prevT = 0L
     private var fuelAtStart = 0.0
     private var lastFlush = 0L
+    private val score = DriveScore.Detector()
     private var cache: MutableList<TripRecord>? = null
     @Volatile var version = 0
         private set
@@ -137,6 +239,13 @@ object Trips {
     fun tick() {
         val kmh = if (Gps.fresh) Gps.speedKmh else 0f
         if (det.active && det.update(System.currentTimeMillis(), kmh) == 2) finish(det.endedAt)
+        val c = current ?: return
+        // OBD speed is steadier than GPS for spotting hard brakes
+        val v = Obd.v("speed") ?: if (Gps.fresh) Gps.speedKmh else return
+        when (score.feed(v)) { -1 -> c.hardBrakes++; 1 -> c.hardAccels++ }
+        val road = RoadLimit.kmh
+        val fixed = SpeedAlert.limitKmh()
+        if ((road != null && v > road + 5f) || (road == null && fixed != null && v > fixed + 1f)) c.speedingS++
     }
 
     /** The head unit is turning off: close the current drive. */
@@ -149,6 +258,7 @@ object Trips {
         val sLon = if (Parking.has && dist(Parking.lat, Parking.lon, lat, lon) < 2000) Parking.lon else lon
         current = TripRecord(now, now, 0.0, 0L, 0f, sLat, sLon, lat, lon, 0.0)
         fuelAtStart = Obd.fuelLitres
+        score.reset()
         pts.setLength(0)
         lastPtLat = Double.NaN
         Diag.log("trip started")
@@ -348,6 +458,7 @@ object FuelLog {
     fun remove(t: Long) { val l = list().toMutableList(); l.removeAll { it.t == t }; cache = l; save() }
 
     private fun save() {
+        FuelRange.forget()
         version++
         val a = JSONArray()
         cache?.forEach { a.put(it.toJson()) }

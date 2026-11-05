@@ -108,6 +108,7 @@ open class MainActivity : Activity() {
         Prefs.init(this)
         Skin.set(Prefs.skin)
         F.load(this)
+        CarArt.init(this)
         C.accent = Prefs.accent
         C.apply(ThemeMgr.wantNight(), Prefs.background != "plain")
         Trips.init(this); FuelLog.init(this); ServiceLog.init(this)
@@ -522,6 +523,20 @@ open class MainActivity : Activity() {
                     Toast.makeText(this, "Couldn't use that picture (${e.message})", Toast.LENGTH_LONG).show()
                 }
             }
+            REQ_CAR -> {
+                val uri = data?.data ?: return
+                if (resultCode != RESULT_OK) return
+                try {
+                    var bmp = decodeScaled(uri, 1600) ?: throw IllegalStateException("not a picture")
+                    if (bmp.hasAlpha()) bmp = trimTransparent(bmp)
+                    FileOutputStream(CarArt.photoFile(this)).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                    Prefs.carPhoto = true
+                    CarArt.reset()
+                    rebuild()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Couldn't use that picture (${e.message})", Toast.LENGTH_LONG).show()
+                }
+            }
             REQ_BIND -> {
                 val id = pendingWidget?.third ?: return
                 if (resultCode == RESULT_OK) configureWidget(id) else { widgetHost.deleteAppWidgetId(id); pendingWidget = null }
@@ -531,6 +546,21 @@ open class MainActivity : Activity() {
                 if (resultCode == RESULT_OK) finishWidget(id) else { widgetHost.deleteAppWidgetId(id); pendingWidget = null }
             }
         }
+    }
+
+    /** Crop the see-through border of a cut-out picture so the car fills its space. */
+    private fun trimTransparent(b: Bitmap): Bitmap {
+        val w = b.width; val h = b.height
+        val px = IntArray(w * h)
+        b.getPixels(px, 0, w, 0, 0, w, h)
+        var l = w; var t = h; var r = -1; var bt = -1
+        for (y in 0 until h) for (x in 0 until w) if ((px[y * w + x] ushr 24) > 16) {
+            if (x < l) l = x; if (x > r) r = x; if (y < t) t = y; if (y > bt) bt = y
+        }
+        if (r < l || bt < t) return b
+        // fully opaque picture: treat it as a normal photo
+        if (l == 0 && t == 0 && r == w - 1 && bt == h - 1 && px.all { (it ushr 24) == 255 }) return b.copy(Bitmap.Config.RGB_565, false) ?: b
+        return Bitmap.createBitmap(b, l, t, r - l + 1, bt - t + 1)
     }
 
     private fun decodeScaled(uri: Uri, maxSide: Int): Bitmap? {
@@ -726,6 +756,7 @@ open class MainActivity : Activity() {
         const val REQ_BG = 12
         const val REQ_BIND = 13
         const val REQ_CONFIG = 14
+        const val REQ_CAR = 15
     }
 }
 

@@ -47,6 +47,7 @@ class DriveService : Service() {
         override fun run() {
             try {
                 SpeedAlert.check(this@DriveService)
+                SpeedVolume.update(this@DriveService)
                 Trips.tick()
                 Overlay.update(this@DriveService)
             } catch (e: Exception) {
@@ -146,9 +147,12 @@ class DriveService : Service() {
     }
 }
 
-/** Beeps when the car goes faster than the chosen speed. */
+/** Beeps when the car goes faster than the chosen speed, or faster than the road's posted limit. */
 object SpeedAlert {
     @Volatile var over = false
+        private set
+    /** Faster than the road's posted limit (the sign turns red). */
+    @Volatile var overRoad = false
         private set
     private var lastBeep = 0L
     private var tone: ToneGenerator? = null
@@ -161,15 +165,24 @@ object SpeedAlert {
     }
 
     fun check(ctx: Context) {
+        val kmh = if (Gps.fresh) Gps.speedKmh else Obd.v("speed")
+        if (kmh == null) { over = false; overRoad = false; return }
+        val road = RoadLimit.kmh
+        overRoad = when {
+            road == null -> false
+            kmh > road + 2f -> true
+            kmh < road - 2f -> false
+            else -> overRoad
+        }
+        val tol = Prefs.roadWarn
         val lim = limitKmh()
-        if (lim == null) { over = false; return }
-        val kmh = if (Gps.fresh) Gps.speedKmh else Obd.v("speed") ?: run { over = false; return }
-        if (kmh > lim + 1f) {
-            over = true
+        // once over, stay "over" until a few km/h below the limit (no flicker)
+        val fixedOver = lim != null && (if (over) kmh >= lim - 3f else kmh > lim + 1f)
+        val roadOver = road != null && tol >= 0 && (if (over) kmh >= road + tol - 2f else kmh > road + max(2, tol))
+        over = fixedOver || roadOver
+        if (over) {
             val now = SystemClock.elapsedRealtime()
             if (now - lastBeep > 10_000) { lastBeep = now; beep() }
-        } else if (kmh < lim - 3f) {
-            over = false
         }
     }
 

@@ -46,8 +46,8 @@ object Drive {
 
 // ------------------------------------------------------------------ car picture
 
-/** Side view of a saloon car (original drawing), with lit lamps, spinning wheels and a glowing floor. */
-object CarArt {
+/** Drawn side view of a saloon car: used only if the rendered pictures can't be loaded. */
+private object VectorCar {
     private val body = Path()
     private val roof = Path()
     private val rearWin = Path()
@@ -184,6 +184,177 @@ object CarArt {
     }
 }
 
+
+/**
+ * The car on the home screen: a 3D-rendered saloon (original design, made with tools/car3d) in the owner's
+ * paint colour with wheels that turn while driving, or the owner's own photo of their car.
+ */
+object CarArt {
+    // picture frame and wheel positions in metres (must match tools/car3d/car.js)
+    private const val X0 = -0.04f
+    private const val X1 = 4.90f
+    private const val Y0 = -0.02f
+    private const val Y1 = 1.56f
+    private val WHEELS = floatArrayOf(0.98f, 3.86f)
+    private const val WY = 0.345f
+    private const val WHEEL_HALF = 0.349f
+    private val HEAD = floatArrayOf(4.80f, 0.80f)
+    private val TAIL = floatArrayOf(0.07f, 0.97f)
+
+    /** Paint colours: key to (name, swatch colour). */
+    val COLORS = linkedMapOf(
+        "silver" to ("Silver" to 0xFFB9BFC7.toInt()), "white" to ("White" to 0xFFE8EAED.toInt()),
+        "grey" to ("Grey" to 0xFF5B616A.toInt()), "black" to ("Black" to 0xFF16181B.toInt()),
+        "blue" to ("Blue" to 0xFF1D3F8F.toInt()), "red" to ("Red" to 0xFF8E1616.toInt()),
+        "bronze" to ("Bronze" to 0xFF6E4B2F.toInt()), "green" to ("Green" to 0xFF1D3A30.toInt()),
+    )
+
+    private var app: android.content.Context? = null
+    private var bodyKey = ""
+    private var body: android.graphics.Bitmap? = null
+    private var wheel: android.graphics.Bitmap? = null
+    private var photoKey = -1L
+    private var photo: android.graphics.Bitmap? = null
+    private val bp = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val rf = RectF()
+    private val dash = Path()
+    private val clear = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_OUT)
+
+    fun init(ctx: android.content.Context) { app = ctx.applicationContext }
+
+    /** Forget loaded pictures (after the colour or photo changed). */
+    fun reset() { bodyKey = ""; body = null; photoKey = -1L; photo = null }
+
+    fun photoFile(ctx: android.content.Context) = java.io.File(ctx.filesDir, "car.png")
+
+    private fun asset(name: String): android.graphics.Bitmap? = try {
+        app?.assets?.open(name)?.use { android.graphics.BitmapFactory.decodeStream(it) }
+    } catch (e: Exception) { Diag.log("car picture $name: ${e.message}"); null }
+
+    private fun bodyBitmap(): android.graphics.Bitmap? {
+        val k = Prefs.carColor
+        if (k != bodyKey) {
+            bodyKey = k
+            body = asset("car/car_${if (k in COLORS) k else "silver"}.webp")
+            if (wheel == null) wheel = asset("car/wheel.webp")
+        }
+        return body
+    }
+
+    private fun photoBitmap(): android.graphics.Bitmap? {
+        val ctx = app ?: return null
+        if (!Prefs.carPhoto) return null
+        val f = photoFile(ctx)
+        val stamp = if (f.exists()) f.lastModified() else 0L
+        if (stamp != photoKey) {
+            photoKey = stamp
+            photo = if (stamp == 0L) null else try { android.graphics.BitmapFactory.decodeFile(f.path) } catch (_: Exception) { null }
+        }
+        return photo
+    }
+
+    fun draw(c: Canvas, cx: Float, bottom: Float, maxW: Float, maxH: Float, wheelDeg: Float, dashPhase: Float, moving: Boolean) {
+        if (maxW <= 0f || maxH <= 0f) return
+        val ph = photoBitmap()
+        if (ph != null) { drawPhoto(c, ph, cx, bottom, maxW, maxH); return }
+        val b = bodyBitmap()
+        val w = wheel
+        if (b == null || w == null) { VectorCar.draw(c, cx, bottom, maxW, maxH, wheelDeg, dashPhase, moving); return }
+        val fw = X1 - X0; val fh = Y1 - Y0
+        val s = min(maxW / fw, maxH / fh)
+        val left = cx - fw * s / 2f
+        val top = bottom - fh * s
+        fun px(x: Float) = left + (x - X0) * s
+        fun py(y: Float) = top + (Y1 - y) * s
+        val ground = py(0f)
+        floor(c, cx, ground, fw * s, s, dashPhase, moving)
+        // soft contact shadow under the whole car, darker under the tyres
+        p.xfermode = null; p.style = Paint.Style.FILL
+        shadow(c, cx, ground, fw * s * 0.47f, 0.11f * s, if (C.night) 0.85f else 0.45f)
+        for (x in WHEELS) shadow(c, px(x), ground, 0.42f * s, 0.05f * s, if (C.night) 0.9f else 0.55f)
+        // lamps glow behind the body edges
+        glow(c, px(HEAD[0]), py(HEAD[1]), 0.34f * s, C.accent, if (C.night) 0.40f else 0.22f)
+        glow(c, px(TAIL[0]), py(TAIL[1]), 0.30f * s, 0xFFFF3B4A.toInt(), if (C.night) 0.38f else 0.18f)
+        rf.set(left, top, left + fw * s, top + fh * s)
+        c.drawBitmap(b, null, rf, bp)
+        val r = WHEEL_HALF * s
+        for (x in WHEELS) {
+            val wx = px(x); val wy = py(WY)
+            c.save()
+            c.rotate(wheelDeg, wx, wy)
+            rf.set(wx - r, wy - r, wx + r, wy + r)
+            c.drawBitmap(w, null, rf, bp)
+            c.restore()
+        }
+    }
+
+    private fun floor(c: Canvas, cx: Float, ground: Float, width: Float, s: Float, dashPhase: Float, moving: Boolean) {
+        p.style = Paint.Style.FILL; p.xfermode = null
+        c.save(); c.scale(1f, 0.16f, cx, ground)
+        p.color = 0xFF000000.toInt()
+        p.shader = RadialGradient(cx, ground, width * 0.56f, withAlpha(C.accent, if (C.night) 0.42f else 0.28f), withAlpha(C.accent, 0f), Shader.TileMode.CLAMP)
+        c.drawCircle(cx, ground, width * 0.56f, p)
+        c.restore()
+        val g = if (C.night) 0x59FFFFFF else 0x401B2A44
+        p.shader = LinearGradient(cx - width * 0.5f, 0f, cx + width * 0.5f, 0f, intArrayOf(g and 0x00FFFFFF, g, g and 0x00FFFFFF), null, Shader.TileMode.CLAMP)
+        c.drawRect(cx - width * 0.5f, ground, cx + width * 0.5f, ground + max(1f, 0.006f * s), p)
+        p.shader = null
+        if (moving) {
+            p.style = Paint.Style.STROKE; p.strokeWidth = max(1f, 0.01f * s)
+            p.color = if (C.night) 0x24FFFFFF else 0x261B2A44
+            val k = s / 130f // dash pattern scaled to the car (phase is in 640-wide drawing units)
+            p.pathEffect = DashPathEffect(floatArrayOf(22f * k, 28f * k), dashPhase * k)
+            dash.reset(); dash.moveTo(cx - width * 0.52f, ground + 0.06f * s); dash.lineTo(cx + width * 0.52f, ground + 0.06f * s)
+            c.drawPath(dash, p)
+            p.pathEffect = null; p.style = Paint.Style.FILL
+        }
+    }
+
+    private fun shadow(c: Canvas, x: Float, y: Float, rx: Float, ry: Float, a: Float) {
+        c.save(); c.scale(1f, ry / rx, x, y)
+        p.color = 0xFF000000.toInt()
+        p.shader = RadialGradient(x, y, rx, intArrayOf(withAlpha(0xFF000000.toInt(), a), withAlpha(0xFF000000.toInt(), a * 0.6f), 0), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP)
+        c.drawCircle(x, y, rx, p)
+        c.restore(); p.shader = null
+    }
+
+    private fun glow(c: Canvas, x: Float, y: Float, r: Float, color: Int, a: Float) {
+        p.color = 0xFF000000.toInt()
+        p.shader = RadialGradient(x, y, r, withAlpha(color, a), withAlpha(color, 0f), Shader.TileMode.CLAMP)
+        c.drawCircle(x, y, r, p)
+        p.shader = null
+    }
+
+    /** The owner's own photo: cut-out pictures stand on the floor; normal photos get soft edges. */
+    private fun drawPhoto(c: Canvas, b: android.graphics.Bitmap, cx: Float, bottom: Float, maxW: Float, maxH: Float) {
+        val s = min(maxW / b.width, maxH / b.height)
+        val w = b.width * s; val h = b.height * s
+        rf.set(cx - w / 2, bottom - h, cx + w / 2, bottom)
+        if (b.hasAlpha()) {
+            floor(c, cx, bottom - h * 0.02f, w, h / 1.5f, 0f, false)
+            shadow(c, cx, bottom - h * 0.03f, w * 0.46f, h * 0.06f, if (C.night) 0.8f else 0.4f)
+            c.drawBitmap(b, null, rf, bp)
+            return
+        }
+        val layer = c.saveLayer(rf, null)
+        c.drawBitmap(b, null, rf, bp)
+        p.xfermode = clear
+        val fx = w * 0.12f; val fy = h * 0.14f
+        fun fade(l: Float, t: Float, r: Float, bt: Float, x0: Float, y0: Float, x1: Float, y1: Float) {
+            p.color = 0xFF000000.toInt()
+            p.shader = LinearGradient(x0, y0, x1, y1, 0xFF000000.toInt(), 0x00000000, Shader.TileMode.CLAMP)
+            c.drawRect(l, t, r, bt, p)
+        }
+        fade(rf.left, rf.top, rf.left + fx, rf.bottom, rf.left, 0f, rf.left + fx, 0f)
+        fade(rf.right - fx, rf.top, rf.right, rf.bottom, rf.right, 0f, rf.right - fx, 0f)
+        fade(rf.left, rf.top, rf.right, rf.top + fy, 0f, rf.top, 0f, rf.top + fy)
+        fade(rf.left, rf.bottom - fy, rf.right, rf.bottom, 0f, rf.bottom, 0f, rf.bottom - fy)
+        p.shader = null; p.xfermode = null
+        c.restoreToCount(layer)
+    }
+}
+
 // ------------------------------------------------------------------ hero
 
 /** Big "drive hero": clock, huge speed, three trip numbers and the car. Drawn as one picture so it fits any size. */
@@ -192,6 +363,7 @@ class HeroView(ctx: Context) : View(ctx) {
     private var time = ""; private var ampm = ""; private var date = ""; private var temp = ""; private var wx = Ic.SUN
     private var speed = "--"; private var unit = ""; private var src = ""; private var frac = 0f; private var warn = false; private var dim = true
     private val stats = Array(3) { arrayOf("", "", "") }
+    private var lowRange = false
     private var kmh = 0f
     private var wheel = 0f
     private var phase = 0f
@@ -215,7 +387,13 @@ class HeroView(ctx: Context) : View(ctx) {
         val lim = Prefs.speedLimit
         frac = ((shown ?: 0f) / (if (lim > 0) lim * 1.25f else if (Units.imp) 100f else 160f)).coerceIn(0f, 1f)
         stats[0][0] = "TRIP"; stats[0][1] = fmt("%.1f", Units.dist(Gps.tripMeters)); stats[0][2] = Units.distUnit
-        stats[1][0] = "AVERAGE"; stats[1][1] = fmt("%.0f", Units.speed(Gps.avgKmh)); stats[1][2] = Units.speedUnitLower
+        val range = FuelRange.now()
+        if (range != null && (Obd.connected || !range.approx || FuelLog.list().isNotEmpty())) {
+            stats[1][0] = "RANGE"; stats[1][1] = FuelRange.text(range); stats[1][2] = Units.distUnit
+        } else {
+            stats[1][0] = "AVERAGE"; stats[1][1] = fmt("%.0f", Units.speed(Gps.avgKmh)); stats[1][2] = Units.speedUnitLower
+        }
+        lowRange = range != null && range.km < 60
         val ct = Obd.v("coolant")
         if (Obd.connected && ct != null) {
             stats[2][0] = "COOLANT"; stats[2][1] = fmt("%.0f", ct); stats[2][2] = "°C"
@@ -224,7 +402,8 @@ class HeroView(ctx: Context) : View(ctx) {
             stats[2][1] = if (Gps.fresh || Gps.bearing != 0f) Gps.compass(Gps.bearing) else "--"
             stats[2][2] = if (Gps.fresh || Gps.bearing != 0f) fmt("%.0f°", Gps.bearing) else ""
         }
-        val nk = "$time|$ampm|$date|$temp|$wx|$speed|$unit|$src|$frac|$warn|$dim|${stats.joinToString { it.joinToString() }}|${C.night}"
+        val nk = "$time|$ampm|$date|$temp|$wx|$speed|$unit|$src|$frac|$warn|$dim|${stats.joinToString { it.joinToString() }}|${C.night}|" +
+            "${RoadLimit.signNumber()}|${SpeedAlert.overRoad}|$lowRange"
         if (nk != key) { key = nk; invalidate() }
         if (kmh > 1f && Motion.on && last == 0L) invalidate()
     }
@@ -272,7 +451,7 @@ class HeroView(ctx: Context) : View(ctx) {
             tp.typeface = F.regular; tp.textSize = 15f * s; tp.color = C.MUTED
             val uw = if (stats[i][2].isEmpty()) 0f else tp.measureText(stats[i][2]) + 7f * s
             c.drawText(stats[i][2], sx1, top + 42f * s, tp)
-            tp.typeface = F.numeric; tp.textSize = 32f * s; tp.color = C.TEXT
+            tp.typeface = F.numeric; tp.textSize = 32f * s; tp.color = if (i == 1 && lowRange && stats[1][0] == "RANGE") C.WARN else C.TEXT
             c.drawText(stats[i][1], sx1 - uw, top + 42f * s, tp)
             if (i < 2) {
                 p.style = Paint.Style.FILL; p.shader = null; p.color = C.SEP
@@ -286,15 +465,22 @@ class HeroView(ctx: Context) : View(ctx) {
         c.drawText("SPEED", pad + 4f * s, 112f * s, tp)
         tp.letterSpacing = if (Skin.glass) -0.04f else 0f
         tp.typeface = F.display
-        tp.textSize = (if (Skin.glass) 172f else 150f) * s
+        tp.textSize = when (Skin.id) { Skin.GLASS -> 172f; Skin.LUX -> 184f; Skin.NEON -> 132f; else -> 150f } * s
         tp.textSize *= min(1f, (sx0 - pad - 90f * s) / max(1f, tp.measureText(speed)))
         tp.color = if (warn) C.WARN else if (dim) C.MUTED else C.TEXT
         val base = 128f * s + tp.textSize * 0.72f
         c.drawText(speed, pad, base, tp)
+        val numSize = tp.textSize
         val nx = pad + tp.measureText(speed) + 12f * s
         tp.letterSpacing = 0f
         tp.typeface = F.medium; tp.textSize = 22f * s; tp.color = C.MUTED
         c.drawText(unit, nx, base, tp)
+        val sign = RoadLimit.signNumber()
+        if (sign != null) {
+            val r = 34f * s
+            val sx = nx + tp.measureText(unit) + 22f * s + r
+            if (sx + r < sx0 - 8f * s) SpeedSign.draw(c, sx, base - numSize * 0.5f, r, sign, RoadLimit.postedMph, SpeedAlert.overRoad)
+        }
         // speed bar
         val by = base + 30f * s
         val bx0 = pad + 4f * s
@@ -305,7 +491,7 @@ class HeroView(ctx: Context) : View(ctx) {
         val fx = bx0 + (bx1 - bx0) * frac
         if (frac > 0.005f) {
             val col = if (warn) C.WARN else C.accent
-            if (Skin.glass) {
+            if (Skin.glowy || Skin.lux) {
                 p.strokeWidth = 12f * s; p.color = withAlpha(col, 0.16f); c.drawLine(bx0, by, fx, by, p)
                 p.strokeWidth = 4f * s
                 p.color = 0xFF000000.toInt(); p.shader = LinearGradient(bx0, 0f, bx1, 0f, col, if (warn) col else Skin.accent2, Shader.TileMode.CLAMP)
@@ -344,7 +530,7 @@ class HeroCard(private val a: MainActivity) : Card {
     private val hero = HeroView(a)
 
     init {
-        if (!Skin.glass) { view.background = cardBg(); view.pad(20f, 14f) } else view.pad(4f, 0f)
+        if (!Skin.floatingHero) { view.background = cardBg(); view.pad(20f, 14f) } else view.pad(4f, 0f)
         hero.contentDescription = "Speed, trip and clock"
         view.addView(hero, flp(MATCH, MATCH))
         view.setOnClickListener { a.show(MainActivity.Page.TELEMETRY) }
@@ -411,21 +597,28 @@ class DialView(ctx: Context, private val maxV: Float, private val labels: Array<
         val frac = shown / maxV
         val col = if (warn) C.WARN else C.accent
         p.shader = null; p.pathEffect = null
-        if (Skin.sport) {
+        if (Skin.analog) {
+            val lx = Skin.lux
             // bezel and face
             p.style = Paint.Style.STROKE; p.strokeWidth = 5f * s
-            val metal = SweepGradient(cx, cy, intArrayOf(0xFF9AA1AC.toInt(), 0xFF2A2E35.toInt(), 0xFF7C838E.toInt(), 0xFF2A2E35.toInt(), 0xFF9AA1AC.toInt()), null)
+            val metal = SweepGradient(cx, cy, if (lx) intArrayOf(0xFFF3DFA9.toInt(), 0xFF7A5C26.toInt(), 0xFFE9CF8E.toInt(), 0xFF6E5223.toInt(), 0xFFF3DFA9.toInt())
+                else intArrayOf(0xFF9AA1AC.toInt(), 0xFF2A2E35.toInt(), 0xFF7C838E.toInt(), 0xFF2A2E35.toInt(), 0xFF9AA1AC.toInt()), null)
             m.setRotate(-45f, cx, cy); metal.setLocalMatrix(m)
             p.color = 0xFF000000.toInt(); p.shader = metal; c.drawCircle(cx, cy, 162f * s, p)
             p.style = Paint.Style.FILL
             p.color = 0xFF000000.toInt(); p.shader = RadialGradient(cx, cy - 34f * s, 200f * s,
-                if (C.night) intArrayOf(0xFF1A1D22.toInt(), 0xFF07080A.toInt()) else intArrayOf(0xFFFFFFFF.toInt(), 0xFFD9DCE1.toInt()), null, Shader.TileMode.CLAMP)
+                when {
+                    lx && C.night -> intArrayOf(0xFF1C1A16.toInt(), 0xFF050504.toInt())
+                    lx -> intArrayOf(0xFFFFFDF7.toInt(), 0xFFE9E1D0.toInt())
+                    C.night -> intArrayOf(0xFF1A1D22.toInt(), 0xFF07080A.toInt())
+                    else -> intArrayOf(0xFFFFFFFF.toInt(), 0xFFD9DCE1.toInt())
+                }, null, Shader.TileMode.CLAMP)
             c.drawCircle(cx, cy, 158f * s, p)
             p.shader = null
             // red line band
             p.style = Paint.Style.STROKE; p.strokeCap = Paint.Cap.BUTT
             if (redFrom > 0f) {
-                p.strokeWidth = 12f * s; p.color = withAlpha(C.accent, 0.8f)
+                p.strokeWidth = (if (lx) 5f else 12f) * s; p.color = if (lx) withAlpha(0xFFB23A2E.toInt(), 0.9f) else withAlpha(C.accent, 0.8f)
                 arc(c, cx, cy, 142f * s, redFrom / maxV, 1f - redFrom / maxV)
             }
             // ticks
@@ -437,19 +630,23 @@ class DialView(ctx: Context, private val maxV: Float, private val labels: Array<
                 val r0 = (if (major) 133f else 138f) * s; val r1 = 148f * s
                 val v = maxV * i / minors
                 p.strokeWidth = (if (major) 3.2f else 1.6f) * s
-                p.color = if (redFrom > 0f && v >= redFrom) (if (major) 0xFFFFFFFF.toInt() else withAlpha(0xFFFFFFFF.toInt(), 0.6f))
-                    else if (major) (if (C.night) 0xFFE6E9EE.toInt() else 0xFF2A2F36.toInt()) else (if (C.night) 0xFF5A606A.toInt() else 0xFF9AA1AC.toInt())
+                p.color = when {
+                    lx -> if (major) C.accent else withAlpha(C.accent, 0.45f)
+                    redFrom > 0f && v >= redFrom -> if (major) 0xFFFFFFFF.toInt() else withAlpha(0xFFFFFFFF.toInt(), 0.6f)
+                    major -> if (C.night) 0xFFE6E9EE.toInt() else 0xFF2A2F36.toInt()
+                    else -> if (C.night) 0xFF5A606A.toInt() else 0xFF9AA1AC.toInt()
+                }
                 c.drawLine(cx + r0 * cos(a).toFloat(), cy + r0 * sin(a).toFloat(), cx + r1 * cos(a).toFloat(), cy + r1 * sin(a).toFloat(), p)
             }
             // value arc
             p.strokeCap = Paint.Cap.ROUND
-            p.strokeWidth = 10f * s; p.color = C.TRACK
+            p.strokeWidth = (if (lx) 4f else 10f) * s; p.color = C.TRACK
             arc(c, cx, cy, 124f * s, 0f, 1f)
             if (frac > 0.003f) {
-                p.strokeWidth = 22f * s; p.color = withAlpha(col, 0.14f); arc(c, cx, cy, 124f * s, 0f, frac)
-                val g = SweepGradient(cx, cy, intArrayOf(0xFFFF7A45.toInt(), col, col), floatArrayOf(0f, 0.75f, 1f))
+                p.strokeWidth = (if (lx) 10f else 22f) * s; p.color = withAlpha(col, if (lx) 0.18f else 0.14f); arc(c, cx, cy, 124f * s, 0f, frac)
+                val g = SweepGradient(cx, cy, intArrayOf(if (lx) Skin.accent2 else 0xFFFF7A45.toInt(), col, col), floatArrayOf(0f, 0.75f, 1f))
                 m.setRotate(135f, cx, cy); g.setLocalMatrix(m)
-                p.color = 0xFF000000.toInt(); p.shader = g; p.strokeWidth = 10f * s; arc(c, cx, cy, 124f * s, 0f, frac)
+                p.color = 0xFF000000.toInt(); p.shader = g; p.strokeWidth = (if (lx) 4f else 10f) * s; arc(c, cx, cy, 124f * s, 0f, frac)
                 p.shader = null
             }
             // labels
@@ -457,7 +654,12 @@ class DialView(ctx: Context, private val maxV: Float, private val labels: Array<
             tp.typeface = F.numeric; tp.textSize = 21f * s; tp.letterSpacing = 0f
             for ((i, l) in labels.withIndex()) {
                 val a = Math.toRadians(135.0 + 270.0 * i / majors)
-                tp.color = if (redFrom > 0f && maxV * i / majors >= redFrom) C.accent else if (C.night) 0xFFC9CED6.toInt() else 0xFF2A2F36.toInt()
+                tp.color = when {
+                    redFrom > 0f && maxV * i / majors >= redFrom -> if (lx) 0xFFE5533D.toInt() else C.accent
+                    lx -> C.TEXT2
+                    C.night -> 0xFFC9CED6.toInt()
+                    else -> 0xFF2A2F36.toInt()
+                }
                 c.drawText(l, cx + 104f * s * cos(a).toFloat(), cy + 104f * s * sin(a).toFloat() + 7f * s, tp)
             }
             // needle
@@ -468,7 +670,7 @@ class DialView(ctx: Context, private val maxV: Float, private val labels: Array<
             for ((sw, al) in listOf(12f to 0.14f, 4f to 1f)) {
                 p.strokeWidth = sw * s; p.color = withAlpha(col, al); c.drawLine(bx, by, ex, ey, p)
             }
-            p.style = Paint.Style.FILL; p.color = 0xFF2A2E35.toInt(); c.drawCircle(cx, cy, 15f * s, p)
+            p.style = Paint.Style.FILL; p.color = if (lx) 0xFF16130E.toInt() else 0xFF2A2E35.toInt(); c.drawCircle(cx, cy, 15f * s, p)
             p.style = Paint.Style.STROKE; p.strokeWidth = 3f * s; p.color = 0xFF000000.toInt(); p.shader = metal; c.drawCircle(cx, cy, 15f * s, p)
             p.shader = null
             // readout
@@ -495,8 +697,8 @@ class DialView(ctx: Context, private val maxV: Float, private val labels: Array<
                 c.drawLine(cx + r0 * cos(a).toFloat(), cy + r0 * sin(a).toFloat(), cx + r1 * cos(a).toFloat(), cy + r1 * sin(a).toFloat(), p)
             }
             if (frac > 0.003f) {
-                if (Skin.glass) {
-                    p.strokeWidth = 20f * s; p.color = withAlpha(col, 0.14f); arc(c, cx, cy, r, 0f, frac)
+                if (Skin.glowy) {
+                    p.strokeWidth = (if (Skin.neon) 26f else 20f) * s; p.color = withAlpha(col, if (Skin.neon) 0.2f else 0.14f); arc(c, cx, cy, r, 0f, frac)
                     val g = SweepGradient(cx, cy, intArrayOf(col, if (warn) col else Skin.accent2, if (warn) col else Skin.accent2), floatArrayOf(0f, 0.75f, 1f))
                     m.setRotate(135f, cx, cy); g.setLocalMatrix(m)
                     p.color = 0xFF000000.toInt(); p.shader = g
@@ -551,7 +753,7 @@ class RpmCard(private val a: MainActivity) : Card {
     private val foot = DialFoot(a)
 
     init {
-        if (!Skin.sport) { view.background = cardBg(); view.pad(14f) }
+        if (!Skin.analog) { view.background = cardBg(); view.pad(14f) }
         view.gravity = Gravity.CENTER
         dial.contentDescription = "Engine RPM"
         dial.reserve = S.i(44)
@@ -577,7 +779,7 @@ class SpeedDialCard(private val a: MainActivity) : Card {
     private val foot = DialFoot(a)
 
     init {
-        if (!Skin.sport) { view.background = cardBg(); view.pad(14f) }
+        if (!Skin.analog) { view.background = cardBg(); view.pad(14f) }
         view.gravity = Gravity.CENTER
         dial.contentDescription = "Speed"
         dial.reserve = S.i(44)
@@ -590,8 +792,13 @@ class SpeedDialCard(private val a: MainActivity) : Card {
         val shown = k?.let { Units.speed(it) }
         dial.set(shown, shown?.roundToInt()?.toString() ?: "--", Units.speedUnit, SpeedAlert.over)
         foot.set(0, "Heading", if (Gps.fresh || Gps.bearing != 0f) Gps.compass(Gps.bearing) else "--")
+        val road = RoadLimit.signNumber()
         val lim = Prefs.speedLimit
-        foot.set(1, "Limit", if (lim > 0) "$lim" else "Off", if (lim > 0) C.accent else C.MUTED)
+        when {
+            road != null -> foot.set(1, "Road limit", "$road", if (SpeedAlert.overRoad) C.WARN else C.accent)
+            lim > 0 -> foot.set(1, "Limit", "$lim", C.accent)
+            else -> foot.set(1, "Limit", "Off", C.MUTED)
+        }
     }
 }
 
@@ -603,12 +810,16 @@ class NavCard(private val a: MainActivity) : Card {
     private val box = FrameLayout(a)
     private val img = ImageView(a)
     private val generic = IconBtn(a, Ic.TURN_RIGHT, 34f).apply { isClickable = false; sw = 2.4f }
-    private val dist: TextView = a.label(if (Skin.sport) 46f else 40f, C.TEXT, if (Skin.glass) F.medium else F.numeric).tnum()
+    private val dist: TextView = a.label(when (Skin.id) { Skin.SPORT -> 46f; Skin.LUX -> 46f; Skin.NEON -> 32f; else -> 40f }, C.TEXT,
+        if (Skin.glass) F.medium else F.numeric).tnum()
     private val street: TextView = a.label(17f, C.TEXT3, F.medium)
     private val eta: TextView = a.label(14f, C.TEXT, F.semibold)
     private val app: TextView = a.label(12f, C.MUTED, F.semibold, caps = true)
     private var shown = -1
     private var activeShown: Boolean? = null
+    private val sign = SpeedSignView(a)
+    private val foot = a.hbox(10f)
+    private val chips = a.hbox(8f)
 
     init {
         view.background = cardBg()
@@ -622,14 +833,22 @@ class NavCard(private val a: MainActivity) : Card {
         val col = a.vbox(4f)
         col.addView(dist, lp(MATCH, WRAP)); col.addView(street, lp(MATCH, WRAP))
         top.addView(col, lp(0, WRAP, 1f))
+        sign.contentDescription = "Speed limit"
+        top.addView(sign, lp(S.i(58), S.i(58)))
         view.addView(top, lp(MATCH, WRAP))
-        val foot = a.hbox(10f)
         foot.addView(eta, lp(0, WRAP, 1f)); foot.addView(app, lp(WRAP, WRAP))
         view.addView(foot, lp(MATCH, WRAP))
+        // quick destinations while there is no route
+        val quick = Places.saved().take(2) + Places.NEARBY.take(2)
+        for (p in quick) chips.addView(a.placeChip(p, false), lp(0, S.i(40), 1f))
+        view.addView(chips, lp(MATCH, WRAP))
         view.setOnClickListener { a.openNav() }
     }
 
     override fun update() {
+        sign.update()
+        foot.showIf(NavHub.active)
+        chips.showIf(!NavHub.active)
         if (NavHub.version != shown) {
             shown = NavHub.version
             if (NavHub.active) {
@@ -640,7 +859,7 @@ class NavCard(private val a: MainActivity) : Card {
                 img.setImageBitmap(NavHub.icon)
                 img.showIf(NavHub.icon != null); generic.showIf(NavHub.icon == null)
             } else {
-                dist.put("Where to?"); street.put("Tap to open Maps")
+                dist.put("Where to?"); street.put(if (RoadLimit.road.isNotEmpty()) RoadLimit.road else "Tap to open Maps")
                 eta.put("Turns from Google Maps or Waze show here"); app.put("")
                 img.setImageBitmap(null); img.showIf(false); generic.showIf(true)
             }
@@ -651,11 +870,11 @@ class NavCard(private val a: MainActivity) : Card {
             val on = NavHub.active
             box.background = when {
                 !on -> Skin.tile(C.CARD2)
-                Skin.glass -> Skin.gradient(20f)
+                Skin.glowy || Skin.lux -> Skin.gradient(20f)
                 Skin.sport -> ChamferBg(C.accent, 12f, flat = true)
                 else -> roundBg(C.accent, 14f)
             }
-            generic.set(icon = if (on) Ic.TURN_RIGHT else Ic.NAV, fg = if (!on) C.TEXT2 else if (Skin.id == Skin.CLASSIC) C.ON_ACCENT else C.ON_GRAD)
+            generic.set(icon = if (on) Ic.TURN_RIGHT else Ic.NAV, fg = if (!on) C.TEXT2 else if (Skin.id == Skin.CLASSIC || Skin.lux) C.ON_ACCENT else C.ON_GRAD)
             eta.setTextColor(if (on) C.TEXT else C.MUTED)
             eta.typeface = if (on) F.semibold else F.regular
         }
@@ -674,11 +893,7 @@ class StatsCard(private val a: MainActivity) : Card {
     init {
         for (i in 0 until 4) {
             val t = a.vbox(2f)
-            t.background = when {
-                Skin.glass -> GlassBg(C.CARD, 20f)
-                Skin.sport -> ChamferBg(C.CARD, 10f)
-                else -> cardBg()
-            }
+            t.background = if (Skin.id == Skin.CLASSIC) cardBg() else Skin.panel(C.CARD, 20f)
             t.pad(14f, 10f)
             t.gravity = Gravity.CENTER_VERTICAL
             t.addView(k[i], lp(MATCH, WRAP))
@@ -709,6 +924,8 @@ class StatsCard(private val a: MainActivity) : Card {
             set(1, "Altitude", if (Gps.alt.isNaN()) "--" else fmt("%,.0f", Units.alt(Gps.alt)), Units.altUnit)
             set(2, "Satellites", if (Gps.satsSeen > 0) "${Gps.satsUsed}" else "--", if (Gps.satsSeen > 0) "/${Gps.satsSeen}" else "")
         }
-        set(3, "Trip", trip, Units.distUnit)
+        val range = FuelRange.now()
+        if (range != null && Obd.connected && Obd.v("fuel") != null) set(3, "Range", FuelRange.text(range), Units.distUnit, range.km < 60)
+        else set(3, "Trip", trip, Units.distUnit)
     }
 }

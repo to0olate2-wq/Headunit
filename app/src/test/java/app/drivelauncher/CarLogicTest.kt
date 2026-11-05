@@ -63,4 +63,52 @@ class CarLogicTest {
         assertEquals("Ignition system or misfire", DtcInfo.describe("P0399"))
         assertEquals("Maker-specific engine / transmission code", DtcInfo.describe("P1326"))
     }
+
+    @Test fun driveScore() {
+        assertEquals(100, DriveScore.score(12.0, 0, 0, 0, 900))
+        // one hard brake on a 5 km drive costs 8 points
+        assertEquals(92, DriveScore.score(5.0, 1, 0, 0, 600))
+        // longer drives spread the same events out
+        assertEquals(96, DriveScore.score(20.0, 1, 0, 0, 1800))
+        // 10% of the time over the limit costs 4 points
+        assertEquals(96, DriveScore.score(20.0, 0, 0, 180, 1800))
+        assertEquals("Smooth", DriveScore.label(95))
+        assertEquals("Rough", DriveScore.label(40))
+    }
+
+    @Test fun driveScoreDetector() {
+        val d = DriveScore.Detector()
+        // steady 60 km/h, then a hard stop (60 -> 30 in two seconds = -4.2 m/s²)
+        listOf(60f, 60f, 60f, 60f, 45f, 30f).map { d.feed(it) }.let { assertEquals(-1, it.last()) }
+        val e = DriveScore.Detector()
+        // gentle acceleration is not counted
+        assertEquals(0, listOf(20f, 24f, 28f, 32f, 36f, 40f).map { e.feed(it) }.count { it != 0 })
+        val f = DriveScore.Detector()
+        // 10 -> 32 km/h in two seconds = 3.1 m/s²
+        assertEquals(1, listOf(0f, 0f, 10f, 21f, 32f).map { f.feed(it) }.firstOrNull { it != 0 } ?: 0)
+    }
+
+    @Test fun fuelRange() {
+        val day = 86_400_000L
+        val log = listOf(FuelEntry(1 * day, 50.0, 1500.0, 10_000.0, true), FuelEntry(20 * day, 45.0, 1400.0, 10_500.0, true))
+        val use = FuelRange.avgUse(log, emptyList())
+        assertEquals(9.0, use.first, 0.01) // 45 L over 500 km
+        assertEquals(false, use.second)
+        // from the OBD2 fuel level: half of 70 L at 9 L/100 km
+        assertEquals(388.9, FuelRange.compute(70.0, use, 50f, log, 10_600.0)!!.km, 0.5)
+        // from the log: 100 km since the last full tank uses 9 L, 61 L left
+        val e = FuelRange.compute(70.0, use, null, log, 10_600.0)!!
+        assertEquals(61.0, e.litres, 0.01)
+        assertEquals(true, e.approx)
+        // no full tank yet and no OBD2: unknown
+        assertEquals(null, FuelRange.compute(70.0, 9.0 to true, null, emptyList(), 100.0))
+    }
+
+    @Test fun speedLimitTags() {
+        assertEquals(50 to false, RoadLimit.parseLimit("50"))
+        assertEquals(30 to true, RoadLimit.parseLimit("30 mph"))
+        assertEquals(80 to false, RoadLimit.parseLimit("80;60"))
+        assertEquals(null, RoadLimit.parseLimit("TH:urban"))
+        assertEquals(null, RoadLimit.parseLimit("none"))
+    }
 }

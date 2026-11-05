@@ -88,6 +88,42 @@ object C {
                 MAP_BG = 0xFF101215.toInt(); ROAD = 0xFF121418.toInt(); ROAD_EDGE = 0xFF3A3F47.toInt(); HORIZON = 0xFF1C1F24.toInt()
                 ART_BG = 0xFF1C1F24.toInt(); SEP = 0x2EFFFFFF; FLOAT = 0xE6121418.toInt()
             }
+            Skin.neon && night -> {
+                BG = 0xFF06040F.toInt(); CARD = 0xA60C0820.toInt(); CARD2 = 0x1FFFFFFF; ROAD_BG = 0x660C0820
+                BORDER = 0x2EFFFFFF; BORDER2 = 0x3DFFFFFF; TRACK = 0x338A5CFF
+                TEXT = 0xFFF5F2FF.toInt(); TEXT2 = 0xFFD8CFF5.toInt(); TEXT3 = 0xFFEAE5FF.toInt(); MUTED = 0xFFA195CC.toInt()
+                BLUE = 0xFF00E5FF.toInt(); BLUE_TEXT = 0xFF7DF2FF.toInt(); BLUE_BG = 0x3300E5FF
+                WARN = 0xFFFF4D6D.toInt(); AMBER_TEXT = 0xFFFFD166.toInt(); AMBER_BG = 0x33FFD166
+                MAP_BG = 0xFF0B0718.toInt(); ROAD = 0x66000000; ROAD_EDGE = 0x66FF2BD6; HORIZON = 0x338A5CFF
+                ART_BG = 0x26FFFFFF; SEP = 0x33FFFFFF; FLOAT = 0xE60B0718.toInt()
+            }
+            Skin.neon -> {
+                BG = 0xFFF1EEFA.toInt(); CARD = 0xBFFFFFFF.toInt(); CARD2 = 0x142A1060; ROAD_BG = 0x80FFFFFF.toInt()
+                BORDER = 0x262A1060; BORDER2 = 0x382A1060; TRACK = 0x2E8A5CFF
+                TEXT = 0xFF140A2E.toInt(); TEXT2 = 0xFF2E2350.toInt(); TEXT3 = 0xFF1E143D.toInt(); MUTED = 0xFF5F5585.toInt()
+                BLUE = 0xFF008FA8.toInt(); BLUE_TEXT = 0xFF006A7D.toInt(); BLUE_BG = 0x26008FA8
+                WARN = 0xFFD1204A.toInt(); AMBER_TEXT = 0xFF8A4A00.toInt(); AMBER_BG = 0x33F2A33A
+                MAP_BG = 0xFFE6E2F2.toInt(); ROAD = 0x332A1060; ROAD_EDGE = 0x66FF2BD6; HORIZON = 0x262A1060
+                ART_BG = 0x1F2A1060; SEP = 0x332A1060; FLOAT = 0xEBFFFFFF.toInt()
+            }
+            Skin.lux && night -> {
+                BG = 0xFF070605.toInt(); CARD = 0xE60F0E0B.toInt(); CARD2 = 0xFF1A1814.toInt(); ROAD_BG = 0xFF0D0C0A.toInt()
+                BORDER = 0x33D4AF6A; BORDER2 = 0x4DD4AF6A; TRACK = 0xFF27231C.toInt()
+                TEXT = 0xFFF6F0E4.toInt(); TEXT2 = 0xFFDCD2BF.toInt(); TEXT3 = 0xFFEEE6D6.toInt(); MUTED = 0xFFA69B85.toInt()
+                BLUE = 0xFFD4AF6A.toInt(); BLUE_TEXT = 0xFFE9CF98.toInt(); BLUE_BG = 0x33D4AF6A
+                WARN = 0xFFE5533D.toInt(); AMBER_TEXT = 0xFFF1C27D.toInt(); AMBER_BG = 0x33F1C27D
+                MAP_BG = 0xFF12110E.toInt(); ROAD = 0xFF141310.toInt(); ROAD_EDGE = 0x80D4AF6A.toInt(); HORIZON = 0xFF221F19.toInt()
+                ART_BG = 0xFF1E1B16.toInt(); SEP = 0x33D4AF6A; FLOAT = 0xEB0F0E0B.toInt()
+            }
+            Skin.lux -> {
+                BG = 0xFFF3EEE4.toInt(); CARD = 0xF2FFFDF8.toInt(); CARD2 = 0xFFF0E9DC.toInt(); ROAD_BG = 0xFFF0EADF.toInt()
+                BORDER = 0x66B08D4A; BORDER2 = 0x80B08D4A.toInt(); TRACK = 0xFFE4DBCB.toInt()
+                TEXT = 0xFF1B1712.toInt(); TEXT2 = 0xFF3A3328.toInt(); TEXT3 = 0xFF29231B.toInt(); MUTED = 0xFF6E6453.toInt()
+                BLUE = 0xFF9C7A3C.toInt(); BLUE_TEXT = 0xFF6E5423.toInt(); BLUE_BG = 0x339C7A3C
+                WARN = 0xFFB8321F.toInt(); AMBER_TEXT = 0xFF8A4A00.toInt(); AMBER_BG = 0x33F2A33A
+                MAP_BG = 0xFFEAE3D6.toInt(); ROAD = 0xFFDCD3C3.toInt(); ROAD_EDGE = 0xFFB08D4A.toInt(); HORIZON = 0xFFD8CDB8.toInt()
+                ART_BG = 0xFFE7DFD0.toInt(); SEP = 0x4DB08D4A; FLOAT = 0xF2FFFDF8.toInt()
+            }
             Skin.sport -> {
                 BG = 0xFFE3E5E9.toInt(); CARD = 0xD9FFFFFF.toInt(); CARD2 = 0x12000000; ROAD_BG = 0xFFEDEFF2.toInt()
                 BORDER = 0x1F000000; BORDER2 = 0x2E000000; TRACK = 0xFFD5D9DF.toInt()
@@ -126,8 +162,14 @@ object F {
         if (all.isEmpty()) {
             for (n in listOf("Barlow-Regular", "Barlow-Medium", "Barlow-SemiBold", "Barlow-Bold", "BarlowSemiCondensed-SemiBold",
                 "Outfit-ExtraLight", "Outfit-Light", "Outfit-Regular", "Outfit-Medium", "Outfit-SemiBold",
-                "Rajdhani-Medium", "Rajdhani-SemiBold", "Rajdhani-Bold")) {
+                "Rajdhani-Medium", "Rajdhani-SemiBold", "Rajdhani-Bold", "CormorantGaramond-Light", "CormorantGaramond-SemiBold")) {
                 try { all[n] = Typeface.createFromAsset(ctx.assets, "fonts/$n.ttf") } catch (_: Exception) {}
+            }
+            // Orbitron ships unmodified as one variable font: pick weights at run time
+            for ((n, w) in listOf("Orbitron-Medium" to 500, "Orbitron-Bold" to 700)) {
+                all[n] = try {
+                    Typeface.Builder(ctx.assets, "fonts/Orbitron-Variable.ttf").setFontVariationSettings("'wght' $w").build()
+                } catch (_: Exception) { null } ?: try { Typeface.createFromAsset(ctx.assets, "fonts/Orbitron-Variable.ttf") } catch (_: Exception) { continue }
             }
         }
         apply()
@@ -150,6 +192,16 @@ object F {
             }
             Skin.SPORT -> {
                 numeric = f("Rajdhani-Bold", numeric); display = numeric
+            }
+            Skin.NEON -> {
+                regular = f("Outfit-Regular", regular); medium = f("Outfit-Medium", medium)
+                semibold = f("Outfit-SemiBold", semibold); bold = f("Outfit-SemiBold", bold)
+                numeric = f("Orbitron-Medium", numeric); display = f("Orbitron-Bold", numeric)
+            }
+            Skin.LUX -> {
+                regular = f("Outfit-Light", regular); medium = f("Outfit-Regular", medium)
+                semibold = f("Outfit-Medium", semibold); bold = f("Outfit-SemiBold", bold)
+                numeric = f("CormorantGaramond-SemiBold", numeric); display = f("CormorantGaramond-Light", numeric)
             }
         }
     }
@@ -206,7 +258,7 @@ fun Context.label(
     ellipsize = TextUtils.TruncateAt.END
     if (caps) {
         isAllCaps = true // after setSingleLine, which would otherwise replace it
-        letterSpacing = if (Skin.id == Skin.CLASSIC) 0.08f else 0.16f
+        letterSpacing = when (Skin.id) { Skin.CLASSIC -> 0.08f; Skin.LUX -> 0.24f; else -> 0.16f }
     }
 }
 

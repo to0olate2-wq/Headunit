@@ -8,7 +8,8 @@ import android.graphics.RectF
 enum class Ic {
     HOME, MINUS, PLUS, GRID, MIC, PIN, MUSIC, PHONE, SLIDERS, PLAY, PAUSE, PREV, NEXT,
     SHUFFLE, QUEUE, REFRESH, TURN_RIGHT, NAV, LOCATE, MOON, SUN, CLOUD, RAIN, CHECK, PLUG,
-    CAR, TIRE, LINK, GAUGE, BT, CLOSE, OPEN, SOURCE, DASH, SPLIT, BACK, FUEL, WRENCH, ENGINE, PARK, ROUTE, TRASH, EDIT
+    CAR, TIRE, LINK, GAUGE, BT, CLOSE, OPEN, SOURCE, DASH, SPLIT, BACK, FUEL, WRENCH, ENGINE, PARK, ROUTE, TRASH, EDIT,
+    WORK, STAR, COFFEE, FOOD, SEARCH, FOLDER, HIDE, SORT, LEAF
 }
 
 /** Stroke icons drawn on a 24x24 grid (same shapes as the mockup). */
@@ -193,6 +194,32 @@ object Icons {
             Ic.ENGINE -> {
                 poly(c, 4f, 10f, 4f, 16f, 7f, 16f, 9f, 19f, 17f, 19f, 17f, 16f, 20f, 16f, 20f, 10f, 17f, 10f, 15f, 7f, 9f, 7f, 7f, 10f, close = true)
                 c.drawLine(10f, 4f, 14f, 4f, sp); c.drawLine(12f, 4f, 12f, 7f, sp)
+            }
+            Ic.WORK -> {
+                rr(c, 3f, 7f, 21f, 19f, 2f)
+                poly(c, 9f, 7f, 9f, 5f, 15f, 5f, 15f, 7f)
+                c.drawLine(3f, 12.5f, 21f, 12.5f, sp)
+            }
+            Ic.STAR -> poly(c, 12f, 3.5f, 14.6f, 9f, 20.5f, 9.6f, 16f, 13.6f, 17.3f, 19.5f, 12f, 16.5f, 6.7f, 19.5f, 8f, 13.6f, 3.5f, 9.6f, 9.4f, 9f, close = true)
+            Ic.COFFEE -> {
+                poly(c, 5f, 9f, 6f, 19f, 15f, 19f, 16f, 9f, close = true)
+                path.reset(); path.moveTo(16f, 11f); path.cubicTo(20f, 11f, 20f, 16f, 15.5f, 16f); c.drawPath(path, sp)
+                c.drawLine(8f, 3.5f, 8f, 6f, sp); c.drawLine(11f, 3.5f, 11f, 6f, sp); c.drawLine(14f, 3.5f, 14f, 6f, sp)
+            }
+            Ic.FOOD -> {
+                c.drawLine(7f, 3f, 7f, 21f, sp); poly(c, 4.5f, 3f, 4.5f, 8f, 9.5f, 8f, 9.5f, 3f)
+                path.reset(); path.moveTo(16f, 21f); path.lineTo(16f, 3f); path.cubicTo(19.5f, 5f, 19.5f, 11f, 16f, 12f); c.drawPath(path, sp)
+            }
+            Ic.SEARCH -> { c.drawCircle(10.5f, 10.5f, 6f, sp); c.drawLine(15f, 15f, 20f, 20f, sp) }
+            Ic.FOLDER -> poly(c, 3f, 6f, 9f, 6f, 11f, 8f, 21f, 8f, 21f, 19f, 3f, 19f, close = true)
+            Ic.HIDE -> {
+                path.reset(); path.moveTo(3f, 12f); path.cubicTo(7f, 5f, 17f, 5f, 21f, 12f); path.cubicTo(17f, 19f, 7f, 19f, 3f, 12f); c.drawPath(path, sp)
+                c.drawCircle(12f, 12f, 2.5f, sp); c.drawLine(4f, 4f, 20f, 20f, sp)
+            }
+            Ic.SORT -> { c.drawLine(4f, 7f, 20f, 7f, sp); c.drawLine(4f, 12f, 15f, 12f, sp); c.drawLine(4f, 17f, 10f, 17f, sp) }
+            Ic.LEAF -> {
+                path.reset(); path.moveTo(5f, 19f); path.cubicTo(4f, 9f, 11f, 4f, 20f, 4f); path.cubicTo(20f, 13f, 15f, 20f, 5f, 19f); c.drawPath(path, sp)
+                c.drawLine(5f, 19f, 13f, 11f, sp)
             }
             Ic.PARK -> {
                 rr(c, 4f, 4f, 20f, 20f, 3f)

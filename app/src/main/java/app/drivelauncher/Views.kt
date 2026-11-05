@@ -42,6 +42,8 @@ class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : V
     var chamfer = false
     var underline = 0
         set(v) { if (field != v) { field = v; invalidate() } }
+    /** Luxury: round button with a fine gold ring ([ring] = filled gold, for the page you are on). */
+    var jewel = false
     /** Small warning dot in the corner (0 = none). */
     var badge = 0
         set(v) { if (field != v) { field = v; invalidate() } }
@@ -77,6 +79,35 @@ class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : V
         bgp.style = Paint.Style.FILL
         var iconColor = fg
         when {
+            t != null && Skin.neon -> {
+                val inset = S.p(5f)
+                rf.inset(inset, inset)
+                val rad = rf.width() * 0.26f
+                bgp.color = withAlpha(t[0], if (ring) 0.34f else 0.10f)
+                c.drawRoundRect(rf, rad, rad, bgp)
+                bgp.style = Paint.Style.STROKE
+                for ((sw2, a) in listOf(S.p(7f) to 0.12f, S.p(3.5f) to 0.28f, max(1f, S.p(1.6f)) to 1f)) {
+                    bgp.strokeWidth = sw2
+                    bgp.color = 0xFF000000.toInt()
+                    bgp.shader = LinearGradient(rf.left, rf.top, rf.right, rf.bottom, withAlpha(t[0], a), withAlpha(t[1], a), Shader.TileMode.CLAMP)
+                    c.drawRoundRect(rf, rad, rad, bgp)
+                }
+                bgp.shader = null; bgp.style = Paint.Style.FILL
+                iconColor = if (ring) 0xFFFFFFFF.toInt() else Skin.blend(t[0], 0xFFFFFFFF.toInt(), 0.3f)
+            }
+            jewel -> {
+                val r = min(w, h) / 2f - S.p(4f)
+                bgp.color = 0xFF000000.toInt()
+                bgp.shader = if (ring) LinearGradient(w / 2 - r, h / 2 - r, w / 2 + r, h / 2 + r, C.accent, Skin.accent2, Shader.TileMode.CLAMP) else null
+                if (!ring) bgp.color = C.CARD2
+                c.drawCircle(w / 2, h / 2, r, bgp)
+                bgp.style = Paint.Style.STROKE; bgp.strokeWidth = max(1f, S.p(1.4f))
+                bgp.color = 0xFF000000.toInt()
+                bgp.shader = LinearGradient(w / 2 - r, h / 2 - r, w / 2 + r, h / 2 + r,
+                    intArrayOf(withAlpha(C.accent, 0.95f), withAlpha(C.accent, 0.3f), withAlpha(C.accent, 0.8f)), null, Shader.TileMode.CLAMP)
+                c.drawCircle(w / 2, h / 2, r, bgp)
+                bgp.shader = null; bgp.style = Paint.Style.FILL
+            }
             t != null -> {
                 val inset = S.p(4f)
                 rf.inset(inset, inset)
@@ -137,7 +168,7 @@ class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : V
             rf.set(0f, 0f, w, h)
             when {
                 chamfer -> c.drawPath(path, bgp)
-                circle || grad -> c.drawOval(rf, bgp)
+                circle || grad || jewel -> c.drawOval(rf, bgp)
                 else -> c.drawRoundRect(rf, S.p(radius), S.p(radius), bgp)
             }
         }
@@ -180,7 +211,7 @@ object Arc {
         c.drawArc(rf, 135f, 270f, false, p)
         val f = frac.coerceIn(0f, 1f)
         if (f > 0.002f) {
-            if (Skin.glass && color == C.accent) {
+            if (Skin.glowy && color == C.accent) {
                 p.color = withAlpha(color, 0.14f)
                 p.strokeWidth = sw * 2.4f
                 c.drawArc(rf, 135f, 270f * f, false, p)
@@ -217,7 +248,7 @@ class SpeedGauge(ctx: Context) : View(ctx) {
     }
 
     override fun onDraw(c: Canvas) {
-        val sw = S.p(if (Skin.glass) 8f else 12f)
+        val sw = S.p(if (Skin.glowy || Skin.lux) 8f else 12f)
         val (cx, cy, r) = Arc.fit(width.toFloat(), height.toFloat(), sw).let { Triple(it[0], it[1], it[2]) }
         Arc.draw(c, cx, cy, r, frac, sw, if (warn) C.WARN else C.accent, p)
         tp.typeface = F.numeric
@@ -257,7 +288,7 @@ class RingGauge(ctx: Context) : View(ctx) {
         val w = width.toFloat()
         val h = height.toFloat()
         if (ring) {
-            val sw = max(S.p(if (Skin.glass) 5f else 6f), min(w, h) * (if (Skin.glass) 0.05f else 0.075f))
+            val sw = max(S.p(if (Skin.glowy || Skin.lux) 5f else 6f), min(w, h) * (if (Skin.glowy || Skin.lux) 0.05f else 0.075f))
             val f = Arc.fit(w, h, sw)
             val cx = f[0]; val cy = f[1]; val r = f[2]
             Arc.draw(c, cx, cy, r, frac, sw, if (warn) C.WARN else C.accent, p)
@@ -357,7 +388,7 @@ class Bar(ctx: Context) : View(ctx) {
         if (f > 0f) {
             val col = if (color != 0) color else C.accent
             val fx = x0 + (x1 - x0) * f
-            if (Skin.glass && color == 0) {
+            if ((Skin.glowy || Skin.lux) && color == 0) {
                 rf.set(x0 - h, top - h, fx + h, top + 2 * h)
                 p.color = withAlpha(col, 0.16f)
                 c.drawRoundRect(rf, h * 1.5f, h * 1.5f, p)
@@ -401,13 +432,13 @@ class ArtView(ctx: Context) : View(ctx) {
         val b = bmp
         if (b == null || b.isRecycled) {
             p.shader = null
-            if (Skin.glass) {
+            if (Skin.glowy) {
                 p.color = 0xFF000000.toInt()
                 p.shader = LinearGradient(0f, 0f, w, h, withAlpha(Dock.MUSIC[0], 0.85f), withAlpha(Dock.MUSIC[1], 0.85f), Shader.TileMode.CLAMP)
             } else p.color = C.ART_BG
             c.drawRoundRect(rf, rad, rad, p)
             p.shader = null
-            Icons.draw(c, Ic.MUSIC, w / 2, h / 2, min(w, h) * 0.42f, if (Skin.glass) C.ON_GRAD else C.MUTED)
+            Icons.draw(c, Ic.MUSIC, w / 2, h / 2, min(w, h) * 0.42f, if (Skin.glowy) C.ON_GRAD else if (Skin.lux) C.accent else C.MUTED)
             return
         }
         val sh = BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
@@ -582,6 +613,71 @@ class BackgroundView(ctx: Context, private val kind: String, private val photo: 
         glow(c, w / 2, h * 0.8f, w * 0.36f, C.accent, if (C.night) 0.13f else 0.10f)
     }
 
+    private var gridPhase = 0f
+    private var gridT = 0L
+
+    /** Neon Night: glowing grid floor running to the horizon (it moves faster while driving). */
+    private fun synthwave(c: Canvas, w: Float, h: Float, now: Long) {
+        val hy = h * 0.64f
+        if (Motion.on) {
+            val dt = if (gridT == 0L) 0f else ((now - gridT) / 1000f).coerceAtMost(0.2f)
+            val kmh = if (Gps.fresh) Gps.speedKmh else 0f
+            gridPhase = (gridPhase + dt * (0.12f + kmh * 0.012f)) % 1f
+        }
+        gridT = now
+        val mag = 0xFFFF2BD6.toInt(); val cyan = 0xFF00E5FF.toInt()
+        p.color = 0xFF000000.toInt()
+        p.shader = LinearGradient(0f, 0f, 0f, hy, C.BG, if (C.night) 0xFF1C0A3A.toInt() else 0xFFE4D8FF.toInt(), Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, w, hy, p)
+        p.shader = null
+        glow(c, w * 0.12f, h * 0.05f, w * 0.45f, cyan, if (C.night) 0.16f else 0.22f)
+        glow(c, w * 0.9f, h * 0.3f, w * 0.45f, mag, if (C.night) 0.16f else 0.22f)
+        glow(c, w * 0.5f, hy, w * 0.5f, mag, if (C.night) 0.18f else 0.2f)
+        p.style = Paint.Style.STROKE
+        val base = if (C.night) mag else 0xFF8A2BE2.toInt()
+        // horizon
+        p.strokeWidth = S.p(6f); p.color = withAlpha(base, 0.15f); c.drawLine(0f, hy, w, hy, p)
+        p.strokeWidth = max(1f, S.p(1.5f)); p.color = withAlpha(base, 0.8f); c.drawLine(0f, hy, w, hy, p)
+        // lines towards the viewer
+        p.strokeWidth = max(1f, S.p(1.2f))
+        for (i in -14..14) {
+            p.color = withAlpha(base, 0.32f)
+            c.drawLine(w / 2 + i * w * 0.012f, hy, w / 2 + i * w * 0.13f, h, p)
+        }
+        // cross lines, closer together near the horizon
+        val n = 12
+        for (k in 0 until n) {
+            val d = ((k + gridPhase) / n)
+            val y = hy + (h - hy) * d * d
+            p.color = withAlpha(base, 0.12f + 0.4f * d)
+            c.drawLine(0f, y, w, y, p)
+        }
+        p.style = Paint.Style.FILL
+    }
+
+    private var hair: BitmapShader? = null
+
+    /** Luxury: warm black with a fine brushed texture and a soft gold light from above. */
+    private fun luxe(c: Canvas, w: Float, h: Float) {
+        val sh = hair ?: run {
+            val n = max(4, S.i(6f))
+            val b = Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888)
+            val q = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = if (C.night) 0x0AFFFFFF else 0x0A000000; strokeWidth = 1f }
+            Canvas(b).drawLine(0f, n.toFloat(), n.toFloat(), 0f, q)
+            BitmapShader(b, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT).also { hair = it }
+        }
+        p.color = 0xFF000000.toInt(); p.shader = sh
+        c.drawRect(0f, 0f, w, h, p); p.shader = null
+        glow(c, w * 0.5f, -h * 0.15f, w * 0.65f, C.accent, if (C.night) 0.14f else 0.22f)
+        glow(c, w * 0.15f, h * 1.05f, w * 0.4f, C.accent, if (C.night) 0.06f else 0.12f)
+        if (C.night) {
+            p.color = 0xFF000000.toInt()
+            p.shader = RadialGradient(w / 2, h * 0.4f, max(w, h) * 0.8f, intArrayOf(0x00000000, 0x00000000, 0xB0000000.toInt()),
+                floatArrayOf(0f, 0.4f, 1f), Shader.TileMode.CLAMP)
+            c.drawRect(0f, 0f, w, h, p); p.shader = null
+        }
+    }
+
     override fun onDraw(c: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
         p.shader = null
@@ -593,6 +689,8 @@ class BackgroundView(ctx: Context, private val kind: String, private val photo: 
         if (kind != "photo") when {
             Skin.glass -> { aurora(c, w, h, if (Motion.on) ((now - t0) % 40_000L) / 40_000f else 0f); animate = Motion.on }
             Skin.sport -> carbon(c, w, h)
+            Skin.neon -> { synthwave(c, w, h, now); animate = Motion.on }
+            Skin.lux -> luxe(c, w, h)
         }
         when (kind) {
             "photo" -> {

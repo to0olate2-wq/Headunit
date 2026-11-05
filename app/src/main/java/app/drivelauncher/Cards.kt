@@ -46,6 +46,7 @@ class SpeedCard(private val a: MainActivity) : Card {
     private val gauge = SpeedGauge(a)
     private val t1 = Tile(a, true, 20f)
     private val t2 = Tile(a, true, 20f)
+    private val sign = SpeedSignView(a)
 
     init {
         view.background = cardBg()
@@ -54,7 +55,11 @@ class SpeedCard(private val a: MainActivity) : Card {
         head.addView(a.caption("Speed"), lp(0, WRAP, 1f))
         head.addView(src, lp(WRAP, WRAP))
         view.addView(head, lp(MATCH, WRAP))
-        view.addView(gauge, lp(MATCH, 0, 1f))
+        val g = FrameLayout(a)
+        g.addView(gauge, flp(MATCH, MATCH))
+        sign.contentDescription = "Speed limit"
+        g.addView(sign, flp(S.i(52), S.i(52), Gravity.TOP or Gravity.END))
+        view.addView(g, lp(MATCH, 0, 1f))
         val tiles = a.hbox(8f, center = false)
         tiles.addView(t1, lp(0, WRAP, 1f))
         tiles.addView(t2, lp(0, WRAP, 1f))
@@ -62,6 +67,7 @@ class SpeedCard(private val a: MainActivity) : Card {
     }
 
     override fun update() {
+        sign.update()
         val obdSpeed = Obd.v("speed")
         val kmh: Float?
         val name: String
@@ -167,8 +173,8 @@ class TurnChip(private val a: MainActivity) {
         }
         if (activeShown != NavHub.active) {
             activeShown = NavHub.active
-            box.background = if (NavHub.active && Skin.glass) Skin.gradient(12f) else roundBg(if (NavHub.active) C.accent else C.TRACK, if (Skin.sport) 4f else 12f)
-            generic.set(fg = if (!NavHub.active) C.TEXT2 else if (Skin.glass) C.ON_GRAD else C.ON_ACCENT)
+            box.background = if (NavHub.active && (Skin.glowy || Skin.lux)) Skin.gradient(12f) else roundBg(if (NavHub.active) C.accent else C.TRACK, if (Skin.sport) 4f else 12f)
+            generic.set(fg = if (!NavHub.active) C.TEXT2 else if (Skin.glowy) C.ON_GRAD else C.ON_ACCENT)
         }
     }
 }
@@ -279,7 +285,7 @@ class MapCard(private val a: MainActivity, showTurn: Boolean) : Card {
 
 class ClockCard(private val a: MainActivity) : Card {
     override val view: LinearLayout = a.vbox(6f)
-    private val time: TextView = a.label(if (Skin.glass) 110f else 96f, C.TEXT, F.display).tnum()
+    private val time: TextView = a.label(when (Skin.id) { Skin.GLASS -> 110f; Skin.LUX -> 124f; else -> 96f }, C.TEXT, F.display).tnum()
     private val ampm: TextView = a.label(24f, C.MUTED, F.semibold)
     private val date: TextView = a.label(20f, C.TEXT2, F.medium)
     private val wxIcon = IconBtn(a, Ic.SUN, 22f).apply { isClickable = false }
@@ -333,7 +339,7 @@ class CompassCard(private val a: MainActivity) : Card {
 /** Summary of the Car page: odometer, next service, fuel this month, check-engine light, last drive. */
 class CarCareCard(private val a: MainActivity) : Card {
     override val view: LinearLayout = a.vbox(10f)
-    private val rows = Array(5) { a.label(15f, C.TEXT2, F.regular) to a.label(15f, C.TEXT, F.semibold) }
+    private val rows = Array(6) { a.label(15f, C.TEXT2, F.regular) to a.label(15f, C.TEXT, F.semibold) }
 
     init {
         view.background = cardBg()
@@ -361,7 +367,12 @@ class CarCareCard(private val a: MainActivity) : Card {
         rows[3].second.setTextColor(if (Obd.mil == true) C.WARN else C.TEXT)
         val last = Trips.list().firstOrNull()
         rows[4].first.put("Last drive")
-        rows[4].second.put(last?.let { fmt("%.1f %s · %s", Units.dist(it.meters), Units.distUnit, Fmt.date(it.start)) } ?: "--")
+        rows[4].second.put(last?.let { fmt("%.1f %s · %s", Units.dist(it.meters), Units.distUnit, Fmt.date(it.start)) +
+            (it.score?.let { s -> " · score $s" } ?: "") } ?: "--")
+        val range = FuelRange.now()
+        rows[5].first.put("Fuel range")
+        rows[5].second.put(range?.let { FuelRange.text(it) + " " + Units.distUnit } ?: "Add a full-tank fill-up")
+        rows[5].second.setTextColor(if (range != null && range.km < 60) C.WARN else if (range == null) C.MUTED else C.TEXT)
     }
 }
 
@@ -428,7 +439,7 @@ object HomePages {
     val CARD_TYPES = linkedMapOf(
         "hero" to "Drive hero (speed, clock, car)", "speed" to "Speed", "rpm" to "RPM dial", "trip" to "Trip computer",
         "nav" to "Next turn", "road" to "Road & next turn", "gauges" to "Engine gauges", "stats" to "Readouts (4 numbers)",
-        "map" to "Map", "media" to "Music", "clock" to "Clock & weather", "compass" to "Compass",
+        "places" to "Quick destinations", "map" to "Map", "media" to "Music", "clock" to "Clock & weather", "compass" to "Compass",
         "car" to "Car care", "logo" to "Your logo",
     )
     val LAYOUTS = linkedMapOf(
@@ -454,7 +465,8 @@ object HomePages {
         fun pg(l: String) = PageCfg(l, defaults(l).toMutableList())
         return when (Skin.id) {
             Skin.GLASS -> mutableListOf(pg("aurora"), pg("map"), pg("classic"))
-            Skin.SPORT -> mutableListOf(pg("cockpit"), pg("map"), pg("classic"))
+            Skin.SPORT, Skin.NEON -> mutableListOf(pg("cockpit"), pg("map"), pg("classic"))
+            Skin.LUX -> mutableListOf(pg("aurora"), pg("map"), pg("classic"))
             else -> mutableListOf(pg("classic"), pg("map"))
         }
     }
@@ -504,10 +516,11 @@ class HomePage(private val a: MainActivity, val index: Int, portrait: Boolean, c
             val c: Card = try {
                 when {
                     type == "hero" -> HeroCard(a)
-                    type == "speed" -> if (Skin.sport) SpeedDialCard(a) else SpeedCard(a)
+                    type == "speed" -> if (Skin.analog) SpeedDialCard(a) else SpeedCard(a)
                     type == "rpm" -> RpmCard(a)
                     type == "nav" -> NavCard(a)
                     type == "stats" -> StatsCard(a)
+                    type == "places" -> PlacesCard(a)
                     type == "trip" -> TripCard(a)
                     type == "road" -> RoadCard(a)
                     type == "gauges" -> GaugesCard(a)

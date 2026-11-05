@@ -137,11 +137,20 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         }
 
         val look = group("Look")
-        val skins = Skin.NAMES.keys.toList()
-        row(look, "Theme",
-            segmented(Skin.NAMES.values.toList(), { skins.indexOf(Prefs.skin) }) { i ->
-                if (Prefs.skin != skins[i]) { Prefs.skin = skins[i]; a.rebuild(); a.show(MainActivity.Page.SOURCES) }
-            })
+        val themes = a.hbox(12f, center = false)
+        for ((id, name) in Skin.NAMES) {
+            val tile = a.vbox(6f)
+            val pv = ThemePreview(a, id).apply { chosen = id == Prefs.skin }
+            tile.addView(pv, lp(S.i(168), S.i(96)))
+            tile.addView(a.label(14f, if (id == Prefs.skin) C.TEXT else C.TEXT2, F.semibold).apply { text = name; gravity = Gravity.CENTER }, lp(MATCH, WRAP))
+            tile.isClickable = true
+            tile.contentDescription = "Theme $name"
+            tile.setOnClickListener { if (Prefs.skin != id) { Prefs.skin = id; a.rebuild(); a.show(MainActivity.Page.SOURCES) } }
+            themes.addView(tile, lp(S.i(168), WRAP))
+        }
+        val themeScroll = android.widget.HorizontalScrollView(a).apply { isHorizontalScrollBarEnabled = false; addView(themes) }
+        look.addView(a.label(16f, C.TEXT2, F.medium).apply { text = "Theme" }, lp(MATCH, WRAP).apply { topMargin = S.i(4) })
+        look.addView(themeScroll, lp(MATCH, WRAP).apply { topMargin = S.i(6); bottomMargin = S.i(8) })
         val swatches = a.hbox(10f)
         for (c in C.ACCENTS) {
             val swatch = IconBtn(a, if (c == C.accent) Ic.CHECK else Ic.DASH, 20f)
@@ -154,6 +163,21 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
             swatches.addView(swatch, lp(S.i(44), S.i(44)))
         }
         row(look, "Accent colour", swatches)
+        val paints = a.hbox(8f)
+        for ((key, v) in CarArt.COLORS) {
+            val sw = IconBtn(a, if (key == Prefs.carColor && !Prefs.carPhoto) Ic.CHECK else Ic.DASH, 18f)
+            sw.bgColor = v.second; sw.circle = true; sw.sw = 2.4f
+            sw.fg = if (key == Prefs.carColor && !Prefs.carPhoto) (if (key == "white" || key == "silver") C.ON_ACCENT else 0xFFFFFFFF.toInt()) else v.second
+            sw.contentDescription = "Car colour ${v.first}"
+            sw.setOnClickListener { Prefs.carColor = key; Prefs.carPhoto = false; CarArt.reset(); a.rebuild(); a.show(MainActivity.Page.SOURCES) }
+            paints.addView(sw, lp(S.i(40), S.i(40)))
+        }
+        row(look, "Car colour (home screen car)", paints)
+        row(look, "Your own car photo instead (a cut-out picture looks best)",
+            button("Choose photo").apply { setOnClickListener { a.pickImage(MainActivity.REQ_CAR) } },
+            dynButton({ if (Prefs.carPhoto) "Use 3D car" else "—" }) {
+                if (Prefs.carPhoto) { Prefs.carPhoto = false; CarArt.reset(); a.rebuild(); a.show(MainActivity.Page.SOURCES) }
+            })
         row(look, "Day / night look (Auto follows sunrise and sunset)",
             segmented(listOf("Auto", "Day", "Night"), { listOf("auto", "day", "night").indexOf(Prefs.theme) }) { i ->
                 Prefs.theme = listOf("auto", "day", "night")[i]; a.applyTheme()
@@ -167,6 +191,16 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         row(look, "Background",
             segmented(listOf("Plain", "Stars", "Moving", "Photo"), { listOf("plain", "stars", "moving", "photo").indexOf(Prefs.background) }) { i ->
                 if (i == 3) a.pickImage(MainActivity.REQ_BG) else { Prefs.background = listOf("plain", "stars", "moving")[i]; a.rebuild() }
+            })
+        row(look, "App icons (install an icon pack from the Play Store first)",
+            dynButton({ if (Prefs.iconPack.isEmpty()) "Apps' own icons" else Apps.label(a, Prefs.iconPack) }) {
+                val packs = IconPack.installed(a)
+                val names = listOf("Apps' own icons") + packs.map { it.second }
+                a.dialog().setTitle(if (packs.isEmpty()) "No icon packs installed" else "Icon pack")
+                    .setItems(names.toTypedArray()) { _, i ->
+                        Prefs.iconPack = if (i == 0) "" else packs[i - 1].first
+                        Apps.clearIcons(); a.rebuild(); a.show(MainActivity.Page.SOURCES)
+                    }.setNegativeButton("Cancel", null).show()
             })
         row(look, "Your logo or photo (for the \"Your logo\" card)", button("Choose picture").apply { setOnClickListener { a.pickImage(MainActivity.REQ_LOGO) } })
         row(look, "Home screen: tap and hold any card to change it, add pages or widgets",
@@ -189,6 +223,19 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
                 if (opts[i] > 0) SpeedAlert.beep()
             }.setNegativeButton("Cancel", null).show()
         })
+        row(drive, "Road speed limit signs (from OpenStreetMap; main roads are best covered)",
+            segmented(listOf("Off", "On"), { if (Prefs.roadLimits) 1 else 0 }) { i -> Prefs.roadLimits = i == 1 })
+        row(drive, "Beep when faster than the road's limit",
+            segmented(listOf("Off", "At limit", "+5", "+10"), { listOf(-1, 0, 5, 10).indexOf(Prefs.roadWarn) }) { i ->
+                Prefs.roadWarn = listOf(-1, 0, 5, 10)[i]
+            })
+        row(drive, "Music a little louder at higher speed",
+            segmented(listOf("Off", "Low", "Medium", "High"), { Prefs.speedVolume }) { i -> Prefs.speedVolume = i })
+        row(drive, "Navigation app for quick destinations",
+            segmented(listOf("Auto", "Google Maps", "Waze"), { listOf("auto", "maps", "waze").indexOf(Prefs.navApp) }) { i ->
+                Prefs.navApp = listOf("auto", "maps", "waze")[i]
+            })
+        row(drive, "Saved places (Home, Work and your own)", button("Edit places").apply { setOnClickListener { Places.manage(a) } })
         row(drive, "Floating speedometer on top of ZLink and Maps",
             segmented(listOf("Off", "On"), { if (Prefs.bubble) 1 else 0 }) { i -> Prefs.bubble = i == 1; if (i == 1 && !Overlay.allowed(a)) a.openOverlaySettings() },
             dynButton({ if (Overlay.allowed(a)) "Allowed" else "Allow" }) { a.openOverlaySettings() })
@@ -275,6 +322,7 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
 
     private fun diagText(): String = MediaHub.describe(a) + "\n" + Obd.describe() + "\nGPS: " +
         (if (!Gps.permission) "no permission" else if (Gps.fresh) fmt("fix ±%.0f m, %d/%d satellites", Gps.accuracy, Gps.satsUsed, Gps.satsSeen) else "no fix yet (${Gps.satsSeen} satellites in view)") +
+        "\nRoad limit: " + (RoadLimit.signNumber()?.let { "$it${if (RoadLimit.postedMph) " mph" else ""} ${RoadLimit.road}" } ?: "unknown") + " (" + RoadLimit.status + ")" +
         "\nNavigation: " + (if (NavHub.active) "${NavHub.pkg}: ${NavHub.title} | ${NavHub.text} | ${NavHub.sub}" else "no active route") +
         "\nZLink app: " + (Apps.findZlink(a) ?: "not found") +
         "\nDisplay over other apps: " + (if (Overlay.allowed(a)) "allowed" else "not allowed") +

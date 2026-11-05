@@ -21,8 +21,8 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
     private val obdDot: TextView = status("OBD")
     private val extra: TextView = a.label(13f, C.MUTED, F.regular).tnum()
     private val dots = Dots(a)
-    private val clock: TextView = a.label(if (Skin.sport) 24f else if (Skin.glass) 20f else 18f, C.TEXT,
-        if (Skin.sport) F.numeric else if (Skin.glass) F.medium else F.semibold).tnum()
+    private val clock: TextView = a.label(when (Skin.id) { Skin.SPORT -> 24f; Skin.LUX -> 26f; Skin.GLASS -> 20f; else -> 18f }, C.TEXT,
+        when (Skin.id) { Skin.SPORT, Skin.NEON, Skin.LUX -> F.numeric; Skin.GLASS -> F.medium; else -> F.semibold }).tnum()
     private var lastKey = ""
     private val clockSep: View = a.divider()
 
@@ -40,15 +40,16 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
     }
 
     /** Dock button styled for the theme: colourful tile (Aurora Glass), angled panel (Carbon Sport) or plain icon. */
-    private fun btn(ic: Ic, desc: String, colors: IntArray? = null, click: () -> Unit) = IconBtn(a, ic, if (Skin.glass && colors != null) 26f else 24f).apply {
+    private fun btn(ic: Ic, desc: String, colors: IntArray? = null, click: () -> Unit) = IconBtn(a, ic, if (Skin.glowy && colors != null) 26f else 24f).apply {
         contentDescription = desc
         setOnClickListener { click() }
         when {
-            Skin.glass && colors != null -> {
+            Skin.glowy && colors != null -> {
                 tile = if (colors === HOME) intArrayOf(C.accent, Skin.accent2) else colors
                 fg = C.ON_GRAD; sw = 2f
             }
-            Skin.glass -> fg = C.TEXT3
+            Skin.glowy -> fg = C.TEXT3
+            Skin.lux -> { jewel = true; fg = C.TEXT2 }
             Skin.sport -> chamfer = true
         }
     }
@@ -70,6 +71,8 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
     init {
         when {
             Skin.glass -> { view.background = GlassBg(C.CARD, 28f); view.pad(12f, 0f) }
+            Skin.neon -> { view.background = NeonBg(C.CARD, 24f); view.pad(14f, 0f) }
+            Skin.lux -> { view.background = LuxBg(C.CARD, 22f); view.pad(14f, 0f) }
             Skin.sport -> view.pad(0f)
             else -> { view.background = roundBg(C.CARD, 18f, C.BORDER); view.pad(8f, 0f) }
         }
@@ -113,7 +116,7 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
             v.isNotEmpty() -> {
                 if (!Apps.canLaunch(a, v)) return null
                 btn(Ic.GRID, Apps.label(a, v)) { Apps.launch(a, v) }.apply {
-                    drawable = try { a.packageManager.getApplicationIcon(v) } catch (_: Exception) { null }
+                    drawable = Apps.iconFor(a, v)
                     bgColor = 0
                 }
             }
@@ -139,7 +142,8 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
             for ((b, p) in listOf(home to MainActivity.Page.HOME, tele to MainActivity.Page.TELEMETRY, car to MainActivity.Page.CAR,
                 apps to MainActivity.Page.APPS, settings to MainActivity.Page.SOURCES)) {
                 when {
-                    Skin.glass -> b.ring = p == page
+                    Skin.glowy -> b.ring = p == page
+                    Skin.lux -> { b.ring = p == page; b.set(fg = if (p == page) C.ON_ACCENT else C.TEXT2) }
                     Skin.sport -> { b.underline = if (p == page) C.accent else 0; b.set(fg = if (p == page) C.accent else C.TEXT2) }
                     else -> b.set(fg = if (p == page) C.accent else C.TEXT2, bg = if (p == page) C.CARD2 else 0)
                 }
@@ -148,7 +152,7 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
         }
         val due = ServiceLog.dueCount() > 0 || Obd.mil == true
         car.badge = if (due && Skin.id != Skin.CLASSIC) C.WARN else 0
-        if (!Skin.glass) car.set(icon = Ic.CAR, fg = if (page == MainActivity.Page.CAR) C.accent else if (due) C.AMBER_TEXT else C.TEXT2)
+        if (!Skin.glowy && !Skin.lux) car.set(icon = Ic.CAR, fg = if (page == MainActivity.Page.CAR) C.accent else if (due) C.AMBER_TEXT else C.TEXT2)
         vol.frac = Vol.frac(a)
         dot(gpsDot, Gps.fresh)
         dot(obdDot, Obd.connected)

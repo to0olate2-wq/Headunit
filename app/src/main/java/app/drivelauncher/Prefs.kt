@@ -26,6 +26,24 @@ object Prefs {
     var accent: Int
         get() = p.getInt("accent_$skin", if (skin == Skin.CLASSIC) p.getInt("accent", Skin.defaultAccent(skin)) else Skin.defaultAccent(skin))
         set(v) = p.edit().putInt("accent_$skin", v).apply()
+    /** Show the posted speed limit from OpenStreetMap. */
+    var roadLimits: Boolean get() = gb("roadLimits", true); set(v) = sb("roadLimits", v)
+    /** Beep above the road's limit: -1 off, else allowed extra km/h. */
+    var roadWarn: Int get() = gi("roadWarn", -1); set(v) = si("roadWarn", v)
+    /** Louder music at speed: 0 off, 1 low, 2 medium, 3 high. */
+    var speedVolume: Int get() = gi("speedVolume", 0); set(v) = si("speedVolume", v)
+    /** Icon pack package ("" = the apps' own icons). */
+    var iconPack: String get() = gs("iconPack", ""); set(v) = ss("iconPack", v)
+    /** Fuel tank size in litres (a 2015 Sonata has 70 L). */
+    var tankL: Int get() = gi("tankL", 70); set(v) = si("tankL", v)
+    /** Saved destinations (JSON, see [Places]). */
+    var places: String get() = gs("places", ""); set(v) = ss("places", v)
+    /** auto | maps | waze */
+    var navApp: String get() = gs("navApp", "auto"); set(v) = ss("navApp", v)
+    /** Paint colour of the car picture (see [CarArt.COLORS]). */
+    var carColor: String get() = gs("carColor", "silver"); set(v) = ss("carColor", v)
+    /** Show the owner's own car photo (files/car.png) instead of the rendered car. */
+    var carPhoto: Boolean get() = gb("carPhoto", false); set(v) = sb("carPhoto", v)
     /** Animations: page transitions, glowing background, spinning wheels. */
     var motion: Boolean get() = gb("motion", true); set(v) = sb("motion", v)
     var imperial: Boolean

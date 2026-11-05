@@ -33,7 +33,7 @@ class ScreensTest {
         """{"layout":"grid","cards":["clock","compass","car","logo"]}]"""
     private val glassJson = """[{"layout":"aurora","cards":["hero","nav","media"]},""" +
         """{"layout":"map","cards":["speed","media","map"]},""" +
-        """{"layout":"grid","cards":["clock","compass","car","stats"]}]"""
+        """{"layout":"grid","cards":["clock","places","car","stats"]}]"""
 
     private fun sample(act: MainActivity) {
         Obd.stop()
@@ -70,7 +70,8 @@ class ScreensTest {
         Weather.tempC = 31f
         Weather.code = 0
         Weather.isDay = false
-        Prefs.speedLimit = 40
+        Prefs.speedLimit = 0
+        RoadLimit.setForTest(60, "Sukhumvit Rd")
         SpeedAlert.check(act)
         MediaHub.showForTest(Track("Midnight Ring Road", "The Low Beams", "com.zjinnova.zlink", null,
             236_000L, 145_000L, SystemClock.elapsedRealtime(), true, 1f, "notification"))
@@ -80,7 +81,7 @@ class ScreensTest {
         val route = listOf(doubleArrayOf(13.7466, 100.5393), doubleArrayOf(13.7440, 100.5480), doubleArrayOf(13.7380, 100.5600),
             doubleArrayOf(13.7300, 100.5690), doubleArrayOf(13.7230, 100.5800))
         Trips.addForTest(TripRecord(now - 2 * 3_600_000L, now - 2 * 3_600_000L + 27 * 60_000L, 12_400.0, 24 * 60_000L, 74f,
-            13.7466, 100.5393, 13.7230, 100.5800, 1.1), route)
+            13.7466, 100.5393, 13.7230, 100.5800, 1.1, hardBrakes = 2, hardAccels = 1, speedingS = 60), route)
         Trips.addForTest(TripRecord(now - day - 5 * 3_600_000L, now - day - 5 * 3_600_000L + 41 * 60_000L, 23_900.0, 36 * 60_000L, 96f,
             13.7230, 100.5800, 13.7466, 100.5393, 2.0), route.reversed())
         FuelLog.add(FuelEntry(now - 20 * day, 42.0, 1470.0, 83_100.0, true))
@@ -172,6 +173,24 @@ class ScreensTest {
             act.applyTheme()
             act.showHome(0); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-sport-day-home1")
             Prefs.theme = "night"
+        }
+        // ---- Neon Night and Luxury (standard pages of each theme)
+        for (sk in listOf(Skin.NEON, Skin.LUX)) {
+            Prefs.skin = sk
+            Prefs.pages = ""
+            act.rebuild()
+            act.showHome(0); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-$sk-home1")
+            act.showHome(1); Thread.sleep(1500); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-$sk-home2")
+            if (full) {
+                act.show(MainActivity.Page.TELEMETRY); save(act, "$name-$sk-telemetry")
+                act.show(MainActivity.Page.SOURCES); save(act, "$name-$sk-settings")
+                act.showCarTab(0); save(act, "$name-$sk-car-trips")
+                Prefs.theme = "day"
+                act.applyTheme()
+                act.showHome(0); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-$sk-day-home1")
+                Prefs.theme = "night"
+                act.applyTheme()
+            }
         }
         // ---- Classic
         Prefs.skin = Skin.CLASSIC

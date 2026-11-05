@@ -13,9 +13,9 @@ class MediaCard(private val a: MainActivity, private val big: Boolean, private v
     override val view: LinearLayout = a.vbox(if (big) 14f else 12f)
     private val art = ArtView(a)
     private val kicker: TextView = a.label(11f, when {
-        Skin.sport -> C.accent
-        Skin.glass && C.night -> Skin.blend(Skin.accent2, 0xFFFFFFFF.toInt(), 0.5f)
-        Skin.glass -> Skin.blend(Skin.accent2, 0xFF000000.toInt(), 0.25f)
+        Skin.sport || Skin.lux -> C.accent
+        Skin.glowy && C.night -> Skin.blend(Skin.accent2, 0xFFFFFFFF.toInt(), 0.5f)
+        Skin.glowy -> Skin.blend(Skin.accent2, 0xFF000000.toInt(), 0.25f)
         else -> C.MUTED
     }, F.semibold, caps = true)
     private val bg = cardBg()
@@ -30,7 +30,7 @@ class MediaCard(private val a: MainActivity, private val big: Boolean, private v
     private val timeRow: LinearLayout = a.hbox()
     private val play = IconBtn(a, Ic.PLAY, if (big) 26f else 24f).apply {
         circle = true; sw = 2f
-        grad = Skin.glass; chamfer = Skin.sport
+        grad = Skin.glowy || Skin.lux; chamfer = Skin.sport
     }
     private val prev = IconBtn(a, Ic.PREV, if (big) 26f else 24f).apply { fg = C.TEXT3 }
     private val next = IconBtn(a, Ic.NEXT, if (big) 26f else 24f).apply { fg = C.TEXT3 }
@@ -44,7 +44,7 @@ class MediaCard(private val a: MainActivity, private val big: Boolean, private v
 
     init {
         view.background = bg
-        view.pad(if (big) 20f else if (Skin.glass) 20f else 16f)
+        view.pad(if (big) 20f else if (Skin.glowy || Skin.lux) 20f else 16f)
         val artSize = if (big) 112f else if (roomy) 176f else 64f
         val head = a.hbox(if (big) 16f else if (roomy) 18f else 14f)
         head.addView(art, lp(S.i(artSize), S.i(artSize)))
@@ -70,9 +70,9 @@ class MediaCard(private val a: MainActivity, private val big: Boolean, private v
         if (!big && !roomy) view.addView(a.spacer(), lp(MATCH, 0, 1f))
         val ctl = a.hbox()
         val b = if (big) 52 else 48
-        val pb = if (big) 64 else if (Skin.glass) 68 else 56
+        val pb = if (big) 64 else if (Skin.glowy || Skin.lux) 68 else 56
         if (Skin.id != Skin.CLASSIC) for (x in listOf(prev, next)) {
-            if (Skin.sport) x.chamfer = true else { x.bgColor = C.CARD2; x.radius = 16f }
+            if (Skin.sport) x.chamfer = true else if (Skin.lux) x.jewel = true else { x.bgColor = C.CARD2; x.radius = 16f }
         }
         fun add(v: View, size: Int, desc: String) {
             v.contentDescription = desc
@@ -125,7 +125,8 @@ class MediaCard(private val a: MainActivity, private val big: Boolean, private v
         val t = MediaHub.current
         val icon = if (t?.playing == true) Ic.PAUSE else Ic.PLAY
         when {
-            Skin.glass -> play.set(fg = C.ON_GRAD, icon = icon)
+            Skin.glowy -> play.set(fg = C.ON_GRAD, icon = icon)
+            Skin.lux -> play.set(fg = C.ON_ACCENT, icon = icon)
             Skin.sport -> play.set(fg = C.ON_GRAD, bg = C.accent, icon = icon)
             else -> play.set(fg = C.ON_ACCENT, bg = C.accent, icon = icon)
         }

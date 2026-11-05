@@ -10,6 +10,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import java.util.Calendar
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 /** Car care: trip history, fuel log, service reminders, check-engine codes, parking spot. */
@@ -146,14 +147,17 @@ class CarPage(private val a: MainActivity, portrait: Boolean) {
         val c = Calendar.getInstance(); c.set(Calendar.DAY_OF_MONTH, 1); c.set(Calendar.HOUR_OF_DAY, 0); c.set(Calendar.MINUTE, 0)
         val week = trips.filter { it.start >= weekAgo }
         val month = trips.filter { it.start >= c.timeInMillis }
+        val scores = week.mapNotNull { s -> s.score?.let { it to s.meters } }
+        val weekScore = if (scores.isEmpty()) null else (scores.sumOf { it.first * it.second } / max(1.0, scores.sumOf { it.second })).roundToInt()
         b.addView(tiles(
             "Last 7 days" to fmt("%,.0f %s", Units.dist(week.sumOf { it.meters }), Units.distUnit),
             "Driving time" to dur(week.sumOf { it.movingMs }),
-            "This month" to fmt("%,.0f %s", Units.dist(month.sumOf { it.meters }), Units.distUnit),
-            "Drives" to "${month.size}",
+            "Drive score (7 days)" to (weekScore?.let { "$it · ${DriveScore.label(it)}" } ?: "--"),
+            "This month" to fmt("%,.0f %s", Units.dist(month.sumOf { it.meters }), Units.distUnit) + " · ${month.size}",
         ), lp(MATCH, WRAP))
         Trips.current?.let { cur ->
-            b.addView(row("Driving now", fmt("%.1f %s", Units.dist(cur.meters), Units.distUnit), "Started ${Fmt.time(cur.start)}", C.accent), lp(MATCH, WRAP))
+            b.addView(row("Driving now", fmt("%.1f %s", Units.dist(cur.meters), Units.distUnit),
+                "Started ${Fmt.time(cur.start)} · score so far ${cur.score ?: "--"}", C.accent), lp(MATCH, WRAP))
         }
         if (trips.isEmpty()) {
             b.addView(empty("Drives are saved here automatically — each one with its route, distance and time. Nothing recorded yet."), lp(MATCH, WRAP))
@@ -169,7 +173,7 @@ class CarPage(private val a: MainActivity, portrait: Boolean) {
                 "${Fmt.time(t.start)} → ${Fmt.time(t.end)}",
                 fmt("%.1f %s", Units.dist(t.meters), Units.distUnit),
                 "${dur(t.movingMs)} driving · avg ${fmt("%.0f", Units.speed(t.avgKmh))} · max ${fmt("%.0f", Units.speed(t.maxKmh))} ${Units.speedUnitLower}" +
-                    (if (t.fuelL > 0.05) fmt(" · %.1f L", t.fuelL) else ""),
+                    (if (t.fuelL > 0.05) fmt(" · %.1f L", t.fuelL) else "") + (t.score?.let { " · score $it" } ?: ""),
             )
             r.isClickable = true
             r.setOnClickListener { routeTrip = t; builtFor = ""; update() }
@@ -201,26 +205,43 @@ class CarPage(private val a: MainActivity, portrait: Boolean) {
             "Average" to fmt("%.0f %s", Units.speed(t.avgKmh), Units.speedUnitLower),
             "Max" to fmt("%.0f %s", Units.speed(t.maxKmh), Units.speedUnitLower),
             "Fuel" to if (t.fuelL > 0.05) fmt("%.1f L", t.fuelL) else "--",
+            "Drive score" to (t.score?.let { "$it · ${DriveScore.label(it)}" } ?: "--"),
         ), lp(MATCH, WRAP))
+        if (t.score != null) b.addView(a.label(15f, C.TEXT2, F.regular, lines = 2).apply { text = DriveScore.tip(t) }, lp(MATCH, WRAP))
         return b
     }
 
     // ---------------------------------------------------------------- fuel
 
+    private fun tankSize() {
+        val opts = listOf(45, 50, 55, 60, 65, 70, 75, 80, 90)
+        a.dialog().setTitle("Fuel tank size").setItems(opts.map { "$it L" + if (it == 70) "  (2015 Sonata)" else "" }.toTypedArray()) { _, i ->
+            Prefs.tankL = opts[i]; builtFor = ""; update()
+        }.setNegativeButton("Cancel", null).show()
+    }
+
     private fun fuelView(): View {
         val b = body()
         val list = FuelLog.list()
         val cur = Prefs.currency
-        b.addView(header("Fuel log", button("Add fill-up", true) { addFuel() }), lp(MATCH, WRAP))
+        b.addView(header("Fuel log", button("Tank ${Prefs.tankL} L") { tankSize() }, button("Add fill-up", true) { addFuel() }), lp(MATCH, WRAP))
         val now = System.currentTimeMillis()
         val avg = FuelStats.avgL100(list)
         val cpk = FuelStats.costPerKm(list)
+        val range = FuelRange.now()
         b.addView(tiles(
+            "Range left" to (range?.let { FuelRange.text(it) + " " + Units.distUnit + fmt(" · %.0f%%", it.pct) } ?: "--"),
             "This month" to cur + fmt("%,.0f", FuelStats.monthCost(list, now)),
             "Average use" to (avg?.let { fmt("%.1f L/100 km", it) } ?: "--"),
             "Cost per ${Units.distUnit}" to (cpk?.let { cur + fmt("%.2f", if (Units.imp) it * 1.609344 else it) } ?: "--"),
             "Last fill-up" to (list.firstOrNull()?.let { Fmt.date(it.t) } ?: "--"),
         ), lp(MATCH, WRAP))
+        if (range == null && !Obd.connected) b.addView(a.label(13f, C.MUTED, F.regular, lines = 2).apply {
+            text = "Range appears after your first full-tank fill-up (or with an OBD2 adapter if the car reports its fuel level)."
+        }, lp(MATCH, WRAP))
+        else if (range?.approx == true) b.addView(a.label(13f, C.MUTED, F.regular, lines = 2).apply {
+            text = "~ = estimate. It gets accurate after two full-tank fill-ups in the log."
+        }, lp(MATCH, WRAP))
         if (list.isEmpty()) b.addView(empty("Add each fill-up (litres and price). Average use is worked out between two full-tank fill-ups."), lp(MATCH, WRAP))
         for (e in list.take(60)) {
             val r = row("${Fmt.date(e.t)} · ${fmt("%.1f L", e.liters)}", cur + fmt("%,.2f", e.cost),
