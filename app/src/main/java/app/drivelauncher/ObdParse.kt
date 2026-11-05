@@ -65,4 +65,56 @@ object ObdParse {
         return u.contains("NO DATA") || u.contains("UNABLE TO CONNECT") || u.contains("CAN ERROR") ||
             u.contains("BUS INIT") && u.contains("ERROR") || u.contains("STOPPED")
     }
+
+    /** "P0133" etc. from two raw DTC bytes. */
+    fun dtcName(a: Int, b: Int): String =
+        "PCBU"[(a shr 6) and 3].toString() + ((a shr 4) and 3) + Integer.toHexString(a and 0xF).uppercase(Locale.US) + hex2(b)
+
+    /**
+     * Trouble codes from a mode 03 (stored, service 0x43) or 07 (pending, 0x47) reply.
+     * Handles CAN (count byte, multi-frame "0:" lines) and older protocols (3 codes per line, 0000 padding).
+     */
+    fun dtcs(resp: String, service: Int, can: Boolean?): List<String> {
+        val key = hex2(service)
+        val raw = resp.uppercase(Locale.US).split('\r', '\n')
+            .map { it.replace(" ", "").replace("\t", "").trim() }
+            .filter { it.isNotEmpty() && it.all { ch -> ch.isDigit() || ch in 'A'..'F' || ch == ':' } }
+        val messages = ArrayList<String>()
+        val multi = StringBuilder()
+        for (ln in raw) {
+            when {
+                ln.length <= 3 && !ln.contains(':') -> {} // CAN multi-frame byte count, e.g. "00A"
+                ln.length > 2 && ln[1] == ':' -> multi.append(ln.substring(2))
+                else -> messages.add(ln)
+            }
+        }
+        if (multi.isNotEmpty()) messages.add(0, multi.toString())
+        val out = LinkedHashSet<String>()
+        for (m in messages) {
+            val idx = m.indexOf(key)
+            if (idx < 0) continue
+            val hex = m.substring(idx + 2)
+            val bytes = ArrayList<Int>()
+            var i = 0
+            while (i + 1 < hex.length) { hex.substring(i, i + 2).toIntOrNull(16)?.let { bytes.add(it) }; i += 2 }
+            var start = 0
+            val isCan = can ?: (bytes.isNotEmpty() && bytes.size - 1 >= bytes[0] * 2 && (bytes.size - 1) % 2 == 0)
+            var count = Int.MAX_VALUE
+            if (isCan && bytes.isNotEmpty()) { count = bytes[0]; start = 1 }
+            var k = start
+            var n = 0
+            while (k + 1 < bytes.size && n < count) {
+                val a = bytes[k]; val b = bytes[k + 1]
+                if (a != 0 || b != 0) out.add(dtcName(a, b))
+                k += 2; n++
+            }
+        }
+        return out.toList()
+    }
+
+    /** Check-engine light and number of stored codes from a 0101 reply. */
+    fun milStatus(resp: String): Pair<Boolean, Int>? {
+        val b = parse(resp, 0x01) ?: return null
+        return ((b[0] and 0x80) != 0) to (b[0] and 0x7F)
+    }
 }

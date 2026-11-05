@@ -13,6 +13,7 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
 ## Build & release
 - No Android SDK locally. Syntax/type check: `kotlinc -cp <android-34 android.jar>` on `app/src/main/java/**/*.kt`
   (needs a stub `object BuildConfig { const val VERSION_NAME = "x" }`). Google Maven is blocked here.
+- Commit message containing `[no release]` builds and tests without publishing (use while checking screens).
 - Push `main` → CI builds `assembleRelease`, runs `testReleaseUnitTest` (OBD parser tests + `ScreensTest`, which
   starts the launcher in Robolectric at 1280×720, 1024×600 and 768×1024 and saves PNGs). Release `build-<run>`
   is published only if both pass. Results: shallow-clone branch `ci-results` (status.txt, logs, screens/, test-results/).
@@ -21,7 +22,14 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
 
 ## Layout (`app/src/main/java/app/drivelauncher/`)
 - `MainActivity` builds every page from the real window size (`S.u` scale, design = 1280×720, portrait = 720×1280).
-- Pages: `DrivePage`, `TelemetryPage`, `SourcesPage` (sources, settings, diagnostics), `AppsPage` + `Dock`.
+  `DashActivity` (subclass, `dashMode`) is the compact dashboard used for split screen with Maps.
+- Home pages: `Cards.kt` — `Card` types (speed, trip, road, gauges, map, media, clock, compass, car, logo, widget:<id>),
+  layouts (classic 6, map 3, grid 4, duo 2, dash 3) in `HomePages` (JSON in Prefs `pages`). Tap and hold a card → edit menu.
+- Other pages: `TelemetryPage`, `CarPage` (trips, fuel, service, engine codes, parking), `SourcesPage` (sources,
+  settings, diagnostics), `AppsPage`; `Dock` (4 owner-chosen app buttons, page dots).
+- `DriveService` (foreground, type location): GPS, `Trips` recording, `SpeedAlert`, `Overlay` (floating speedometer),
+  `AutoStart` (power-on / wake from sleep). `Car.kt`: Odometer, Trips, Parking, FuelLog, ServiceLog, DtcInfo.
+- `Theme.kt`: `Sun` (sunrise/sunset), `ThemeMgr` (auto day/night, brightness). Palette `C` is switchable (`C.apply`).
 - Data: `Gps` (speed, trip), `MediaHub` (+ `NavHub`, `MediaListenerService`), `Obd` + `ObdParse` (ELM327 BT/Wi-Fi),
   `Weather` (Open-Meteo), `TileMapView` (Esri dark gray → OSM with dark filter), `Diag` (on-screen + saved log).
 - Drawing: `Views.kt` (gauges, road, art, buttons), `Icons.kt` (24×24 stroke icons), `Ui.kt` (palette, helpers).

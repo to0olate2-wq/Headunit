@@ -44,7 +44,7 @@ jobs:
           ./gradlew --no-daemon testReleaseUnitTest 2>&1 | tee test.log
 
       - name: Publish release (APK only)
-        if: steps.build.outcome == 'success' && steps.test.outcome == 'success'
+        if: steps.build.outcome == 'success' && steps.test.outcome == 'success' && !contains(github.event.head_commit.message, '[no release]')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

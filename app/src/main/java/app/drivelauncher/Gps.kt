@@ -119,18 +119,24 @@ object Gps {
         accuracy = l.accuracy
         lastFix = now
         if (p != null && l.accuracy < 35f && kmh > 3f) {
-            tripMeters += p.distanceTo(l)
-            tripMovingMs += min(max(0L, l.time - p.time), 5000L)
+            val d = p.distanceTo(l)
+            if (d < 500f) {
+                tripMeters += d
+                tripMovingMs += min(max(0L, l.time - p.time), 5000L)
+                Odometer.add(d.toDouble())
+            }
         }
         if (kmh > tripMaxKmh) tripMaxKmh = kmh
         if (tripStart == 0L && kmh > 3f) tripStart = System.currentTimeMillis()
         prev = l
+        try { Trips.onFix(l.latitude, l.longitude, kmh, l.accuracy, l.time) } catch (e: Exception) { Diag.log("trips: ${e.message}") }
         if (now - lastSave > 30_000) save()
         Weather.maybeFetch(lat, lon)
     }
 
     fun save() {
         lastSave = SystemClock.elapsedRealtime()
+        Odometer.save()
         try { Prefs.saveTrip(tripMeters, tripMovingMs, tripMaxKmh, tripStart) } catch (_: Exception) {}
     }
 

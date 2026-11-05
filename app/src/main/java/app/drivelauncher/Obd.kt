@@ -113,6 +113,19 @@ object Obd {
     @Volatile var fuelLitres = 0.0
     @Volatile var fuelKm = 0.0
 
+    // check-engine codes
+    @Volatile var mil: Boolean? = null
+    @Volatile var dtcStored: List<String> = emptyList()
+    @Volatile var dtcPending: List<String> = emptyList()
+    @Volatile var dtcStatus = "Not read yet"
+    @Volatile var dtcAt = 0L
+    @Volatile private var dtcRequest = 0 // 1 read, 2 clear
+    @Volatile var version = 0
+    private var isCan: Boolean? = null
+
+    fun requestReadCodes() { dtcRequest = 1; dtcStatus = "Reading…"; version++ }
+    fun requestClearCodes() { dtcRequest = 2; dtcStatus = "Clearing…"; version++ }
+
     private var app: Context? = null
     @Volatile private var running = false
     @Volatile private var link: ObdLink? = null
@@ -241,6 +254,10 @@ object Obd {
         if (!ok) throw IOException("Car not answering (ignition off?)")
         if (0x20 in supported) ObdParse.parse(io.cmd("0120", 3000), 0x20)?.let { supported.addAll(ObdParse.supported(0x20, it)) }
         if (0x40 in supported) ObdParse.parse(io.cmd("0140", 3000), 0x40)?.let { supported.addAll(ObdParse.supported(0x40, it)) }
+        isCan = io.cmd("ATDPN", 2000).uppercase().filter { it.isLetterOrDigit() }.let { p ->
+            val d = p.lastOrNull()
+            if (d == null) null else d in '6'..'9'
+        }
         val fast = listOf(0x0C, 0x0D).filter { it in supported }
         val slow = listOf(0x05, 0x11, 0x04, 0x0B, 0x10, 0x0F, 0x42, 0x2F, 0x5C).filter { it in supported }
         Diag.log("obd connected to $adapterName, car supports: " + supported.sorted().joinToString(" ") { ObdParse.hex2(it) })
@@ -248,8 +265,25 @@ object Obd {
         detail = "Connected"
         var i = 0
         var lastVolt = 0L
+        var lastMil = 0L
         var lastTick = SystemClock.elapsedRealtime()
+        readCodes(io)
         while (running) {
+            when (dtcRequest) {
+                1 -> { dtcRequest = 0; readCodes(io) }
+                2 -> {
+                    dtcRequest = 0
+                    val r = io.cmd("04", 5000)
+                    dtcStatus = if (r.uppercase().contains("44")) "Codes cleared" else "The car did not accept the clear request"
+                    Diag.log("obd clear codes: ${r.trim()}")
+                    readCodes(io)
+                }
+            }
+            if (SystemClock.elapsedRealtime() - lastMil > 30_000) {
+                ObdParse.milStatus(io.cmd("0101", 2000))?.let { mil = it.first }
+                lastMil = SystemClock.elapsedRealtime()
+                version++
+            }
             for (p in fast) query(io, p)
             if (slow.isNotEmpty()) { query(io, slow[i % slow.size]); i++ }
             val now = SystemClock.elapsedRealtime()
@@ -267,6 +301,23 @@ object Obd {
             }
             if (fast.isEmpty() && slow.isEmpty()) sleep(1000)
         }
+    }
+
+    private fun readCodes(io: Elm) {
+        try {
+            ObdParse.milStatus(io.cmd("0101", 2000))?.let { mil = it.first }
+            dtcStored = ObdParse.dtcs(io.cmd("03", 5000), 0x43, isCan)
+            dtcPending = ObdParse.dtcs(io.cmd("07", 5000), 0x47, isCan)
+            dtcAt = System.currentTimeMillis()
+            dtcStatus = if (dtcStored.isEmpty() && dtcPending.isEmpty()) "No trouble codes" else
+                "${dtcStored.size} stored, ${dtcPending.size} pending"
+            Diag.log("obd codes: stored=$dtcStored pending=$dtcPending mil=$mil")
+        } catch (e: IOException) {
+            throw e
+        } catch (e: Exception) {
+            dtcStatus = "Couldn't read codes: ${e.message}"
+        }
+        version++
     }
 
     private fun query(io: Elm, pid: Int) {

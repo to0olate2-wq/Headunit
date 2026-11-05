@@ -69,8 +69,9 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
     }
     private var diagAt = -100_000L
     private val pinBtn = button("")
-    private val unitsBtns = ArrayList<TextView>()
-    private val fullBtns = ArrayList<TextView>()
+    private val segs = ArrayList<Pair<List<TextView>, () -> Int>>()
+    private val dyn = ArrayList<() -> Unit>()
+    private var segKey = ""
 
     init {
         val col = a.vbox(12f)
@@ -115,41 +116,101 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         can.set("Not available", 2, "Doors and climate need a CAN decoder box the launcher can read. This unit reports CAN version: Unknown, so these widgets stay hidden.", null)
         tpms.set("Not available", 2, "Tire pressure needs a TPMS receiver kit. Support is planned for a later version.", null)
 
-        // settings
-        val set = a.vbox(4f)
-        set.background = cardBg()
-        set.pad(20f, 12f)
-        set.addView(a.caption("Settings"), lp(MATCH, S.i(32)).apply { topMargin = S.i(6) })
-        fun row(name: String, control: View) {
-            val r = a.hbox(12f)
-            r.addView(a.label(16f, C.TEXT2, F.medium).apply { text = name }, lp(0, WRAP, 1f))
-            r.addView(control, lp(WRAP, WRAP))
-            set.addView(r, lp(MATCH, S.i(60)))
+        // settings, in groups
+        fun group(title: String): LinearLayout {
+            val g = a.vbox(4f)
+            g.background = cardBg()
+            g.pad(20f, 12f)
+            g.addView(a.caption(title), lp(MATCH, S.i(32)).apply { topMargin = S.i(6) })
+            col.addView(g, lp(MATCH, WRAP))
+            return g
         }
+        fun row(g: LinearLayout, name: String, vararg controls: View) {
+            val r = a.hbox(10f)
+            r.addView(a.label(16f, C.TEXT2, F.medium, lines = 2).apply { text = name }, lp(0, WRAP, 1f))
+            controls.forEach { r.addView(it, lp(WRAP, if (it is LinearLayout) WRAP else S.i(44))) }
+            g.addView(r, lp(MATCH, WRAP).apply { topMargin = S.i(4); bottomMargin = S.i(4) })
+        }
+        fun dynButton(text: () -> String, click: () -> Unit): TextView = button(text()).also { b ->
+            b.setOnClickListener { click() }
+            dyn.add { b.put(text()) }
+        }
+
+        val look = group("Look")
         val swatches = a.hbox(10f)
         for (c in C.ACCENTS) {
             val swatch = IconBtn(a, if (c == C.accent) Ic.CHECK else Ic.DASH, 20f)
             swatch.bgColor = c
             swatch.circle = true
-            swatch.fg = if (c == C.accent) C.BG else c
+            swatch.fg = if (c == C.accent) C.ON_ACCENT else c
             swatch.sw = 2.4f
             swatch.contentDescription = "Accent colour"
             swatch.setOnClickListener { Prefs.accent = c; C.accent = c; a.rebuild() }
             swatches.addView(swatch, lp(S.i(44), S.i(44)))
         }
-        row("Accent colour", swatches)
-        row("Units", segmented(listOf("Metric", "Imperial"), unitsBtns) { i -> Prefs.imperial = i == 1; a.rebuild() })
-        row("Full screen (hide system bars)", segmented(listOf("Off", "On"), fullBtns) { i -> Prefs.fullscreen = i == 1; a.applyFullscreen(); refreshSegments() })
+        row(look, "Accent colour", swatches)
+        row(look, "Day / night look (Auto follows sunrise and sunset)",
+            segmented(listOf("Auto", "Day", "Night"), { listOf("auto", "day", "night").indexOf(Prefs.theme) }) { i ->
+                Prefs.theme = listOf("auto", "day", "night")[i]; a.applyTheme()
+            })
+        row(look, "Automatic brightness (bright by day, dimmer at night)",
+            segmented(listOf("Off", "On"), { if (Prefs.autoBright) 1 else 0 }) { i -> Prefs.autoBright = i == 1; a.applyTheme() },
+            dynButton({ if (ThemeMgr.canWriteSettings(a)) "Night ${Prefs.nightBright}%" else "Allow" }) {
+                if (!ThemeMgr.canWriteSettings(a)) a.openWriteSettings()
+                else { Prefs.nightBright = when (Prefs.nightBright) { 20 -> 40; 40 -> 60; else -> 20 }; a.applyTheme() }
+            })
+        row(look, "Background",
+            segmented(listOf("Plain", "Stars", "Moving", "Photo"), { listOf("plain", "stars", "moving", "photo").indexOf(Prefs.background) }) { i ->
+                if (i == 3) a.pickImage(MainActivity.REQ_BG) else { Prefs.background = listOf("plain", "stars", "moving")[i]; a.rebuild() }
+            })
+        row(look, "Your logo or photo (for the \"Your logo\" card)", button("Choose picture").apply { setOnClickListener { a.pickImage(MainActivity.REQ_LOGO) } })
+        row(look, "Home screen: tap and hold any card to change it, add pages or widgets",
+            button("Reset layout").apply { setOnClickListener { a.confirm("Reset the home screen?", "Back to the two standard pages.") { Prefs.pages = ""; a.rebuild() } } })
+        row(look, "Dock: tap and hold an app button to change it",
+            button("Reset dock").apply { setOnClickListener { for (i in 0..3) Prefs.ss("dock$i", ""); a.rebuild() } })
+        row(look, "Units", segmented(listOf("Metric", "Imperial"), { if (Prefs.imperial) 1 else 0 }) { i -> Prefs.imperial = i == 1; a.rebuild() })
+        row(look, "Full screen (hide system bars)", segmented(listOf("Off", "On"), { if (Prefs.fullscreen) 1 else 0 }) { i -> Prefs.fullscreen = i == 1; a.applyFullscreen() })
+        row(look, "Screen saver when parked", segmented(listOf("Off", "2 min", "5 min", "10 min"), { listOf(0, 2, 5, 10).indexOf(Prefs.saverMin) }) { i ->
+            Prefs.saverMin = listOf(0, 2, 5, 10)[i]
+        })
+
+        val drive = group("Driving")
+        row(drive, "Speed warning chime", dynButton({ if (Prefs.speedLimit > 0) "${Prefs.speedLimit} ${Units.speedUnitLower}" else "Off" }) {
+            val opts = if (Prefs.imperial) listOf(0, 30, 40, 45, 50, 55, 60, 65, 70, 75, 80) else listOf(0, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130)
+            a.dialog().setTitle("Beep when faster than").setItems(opts.map { if (it == 0) "Off" else "$it ${Units.speedUnitLower}" }.toTypedArray()) { _, i ->
+                Prefs.speedLimit = opts[i]
+                if (opts[i] > 0) SpeedAlert.beep()
+            }.setNegativeButton("Cancel", null).show()
+        })
+        row(drive, "Floating speedometer on top of ZLink and Maps",
+            segmented(listOf("Off", "On"), { if (Prefs.bubble) 1 else 0 }) { i -> Prefs.bubble = i == 1; if (i == 1 && !Overlay.allowed(a)) a.openOverlaySettings() },
+            dynButton({ if (Overlay.allowed(a)) "Allowed" else "Allow" }) { a.openOverlaySettings() })
+        row(drive, "When the car turns on, open", dynButton({
+            when (val v = Prefs.autoApp) { "off", "" -> "Nothing"; "zlink" -> "ZLink" + (if (Apps.findZlink(a) == null) " (not found)" else ""); else -> Apps.label(a, v) }
+        }) {
+            a.chooseApp("When the car turns on, open", listOf("Nothing" to "off", "ZLink (find automatically)" to "zlink")) { Prefs.autoApp = it }
+        })
+        row(drive, "…and resume music", segmented(listOf("Off", "On"), { if (Prefs.autoPlay) 1 else 0 }) { i -> Prefs.autoPlay = i == 1 })
+        row(drive, "…then come back to this screen", segmented(listOf("No", "After 20 s", "After 45 s"), { listOf(0, 20, 45).indexOf(Prefs.autoReturn) }) { i ->
+            Prefs.autoReturn = listOf(0, 20, 45)[i]
+        })
+        row(drive, "Waking from sleep and opening apps from the background need \"Display over other apps\"",
+            dynButton({ if (Overlay.allowed(a)) "Allowed" else "Allow" }) { a.openOverlaySettings() })
+        row(drive, "Split screen app (next to the dashboard)", dynButton({ a.splitTarget()?.let { Apps.label(a, it) } ?: "None" }) {
+            a.chooseApp("Split screen app", listOf("Automatic (Maps)" to "")) { Prefs.splitApp = it }
+        })
         pinBtn.setOnClickListener { val l = MediaHub.cycleSource(a); pinBtn.put("Source: $l") }
-        row("Music source (Auto picks whatever is playing)", pinBtn)
-        row("OBD2 adapter", button("Choose adapter").apply { setOnClickListener { a.chooseObd() } })
-        row("Music & navigation info", button("Notification access").apply { setOnClickListener { a.openNotificationAccess() } })
-        row("Use as home screen", button("Default launcher").apply { setOnClickListener { a.openHomeSettings() } })
-        row("Trip computer", button("Reset trip").apply { setOnClickListener { a.confirm("Reset trip?", "Distance, time and speeds go back to zero.") { Gps.resetTrip() } } })
-        for (i in 0 until set.childCount) (set.getChildAt(i) as? LinearLayout)?.let { r ->
-            if (r.childCount == 2) r.getChildAt(1).layoutParams = lp(WRAP, if (r.getChildAt(1) is LinearLayout) WRAP else S.i(44))
-        }
-        col.addView(set, lp(MATCH, WRAP))
+        row(drive, "Music source (Auto picks whatever is playing)", pinBtn)
+        row(drive, "Trip computer", button("Reset trip").apply { setOnClickListener { a.confirm("Reset trip?", "Distance, time and speeds go back to zero.") { Gps.resetTrip() } } })
+        row(drive, "Odometer (for trips, fuel and service)", dynButton({ fmt("%,.0f km", Odometer.km) }) { a.showCarTab(2) })
+        row(drive, "Currency for fuel costs", dynButton({ Prefs.currency }) {
+            a.form("Currency symbol", listOf(Field("Symbol, e.g. ฿, $, AED", Prefs.currency, false)), null) { v, _ -> if (v[0].isNotEmpty()) Prefs.currency = v[0] }
+        })
+
+        val sys = group("Connections")
+        row(sys, "OBD2 adapter", button("Choose adapter").apply { setOnClickListener { a.chooseObd() } })
+        row(sys, "Music & navigation info", button("Notification access").apply { setOnClickListener { a.openNotificationAccess() } })
+        row(sys, "Use as home screen", button("Default launcher").apply { setOnClickListener { a.openHomeSettings() } })
 
         // diagnostics
         val d = a.vbox(10f)
@@ -178,30 +239,42 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         refreshSegments()
     }
 
-    private fun segmented(names: List<String>, store: ArrayList<TextView>, onPick: (Int) -> Unit): View {
+    /** Row of option buttons; the chosen one is highlighted. */
+    private fun segmented(names: List<String>, current: () -> Int, onPick: (Int) -> Unit): View {
         val box = a.hbox(6f)
+        val list = ArrayList<TextView>()
         names.forEachIndexed { i, n ->
             val b = button(n)
-            b.setOnClickListener { onPick(i) }
-            store.add(b)
+            b.setOnClickListener { onPick(i); refreshSegments() }
+            list.add(b)
             box.addView(b, lp(WRAP, S.i(44)))
         }
+        segs.add(list to current)
         return box
     }
 
     private fun refreshSegments() {
-        fun paint(list: List<TextView>, sel: Int) = list.forEachIndexed { i, b ->
-            b.background = roundBg(if (i == sel) C.accent else C.CARD2, 12f, if (i == sel) 0 else C.BORDER2)
-            b.setTextColor(if (i == sel) C.BG else C.TEXT3)
+        val key = segs.joinToString(",") { it.second().toString() }
+        if (key == segKey) return
+        segKey = key
+        for ((list, cur) in segs) {
+            val sel = cur()
+            list.forEachIndexed { i, b ->
+                b.background = roundBg(if (i == sel) C.accent else C.CARD2, 12f, if (i == sel) 0 else C.BORDER2)
+                b.setTextColor(if (i == sel) C.ON_ACCENT else C.TEXT3)
+            }
         }
-        paint(unitsBtns, if (Prefs.imperial) 1 else 0)
-        paint(fullBtns, if (Prefs.fullscreen) 1 else 0)
     }
 
     private fun diagText(): String = MediaHub.describe(a) + "\n" + Obd.describe() + "\nGPS: " +
         (if (!Gps.permission) "no permission" else if (Gps.fresh) fmt("fix ±%.0f m, %d/%d satellites", Gps.accuracy, Gps.satsUsed, Gps.satsSeen) else "no fix yet (${Gps.satsSeen} satellites in view)") +
         "\nNavigation: " + (if (NavHub.active) "${NavHub.pkg}: ${NavHub.title} | ${NavHub.text} | ${NavHub.sub}" else "no active route") +
-        "\nZLink app: " + (Apps.findZlink(a) ?: "not found")
+        "\nZLink app: " + (Apps.findZlink(a) ?: "not found") +
+        "\nDisplay over other apps: " + (if (Overlay.allowed(a)) "allowed" else "not allowed") +
+        ", modify system settings: " + (if (ThemeMgr.canWriteSettings(a)) "allowed" else "not allowed") +
+        "\nAuto-start: " + Prefs.autoApp + " → " + (AutoStart.target(a) ?: "nothing") + ", resume music " + Prefs.autoPlay +
+        "\nTrips saved: ${Trips.list().size}, odometer ${fmt("%.1f", Odometer.km)} km, parking ${if (Parking.has) "saved" else "none"}" +
+        "\nTheme: ${Prefs.theme} (now ${if (C.night) "night" else "day"}), background ${Prefs.background}"
 
     fun update() {
         // GPS
@@ -233,6 +306,8 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
             else -> obd.set("Not connected", 2, Obd.detail, "Choose adapter")
         }
         pinBtn.put("Source: " + MediaHub.pinLabel(a))
+        refreshSegments()
+        dyn.forEach { it() }
         val now = SystemClock.elapsedRealtime()
         if (now - diagAt > 1500) {
             diagAt = now

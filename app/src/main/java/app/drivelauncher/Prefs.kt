@@ -46,6 +46,43 @@ object Prefs {
         get() = p.getString("mediaPin", "") ?: ""
         set(v) = p.edit().putString("mediaPin", v).apply()
 
+    // ---- generic accessors for the newer settings ----
+    fun gs(k: String, d: String = ""): String = p.getString(k, d) ?: d
+    fun ss(k: String, v: String) = p.edit().putString(k, v).apply()
+    fun gi(k: String, d: Int): Int = p.getInt(k, d)
+    fun si(k: String, v: Int) = p.edit().putInt(k, v).apply()
+    fun gl(k: String, d: Long): Long = p.getLong(k, d)
+    fun sl(k: String, v: Long) = p.edit().putLong(k, v).apply()
+    fun gb(k: String, d: Boolean): Boolean = p.getBoolean(k, d)
+    fun sb(k: String, v: Boolean) = p.edit().putBoolean(k, v).apply()
+
+    /** auto | day | night */
+    var theme: String get() = gs("theme", "auto"); set(v) = ss("theme", v)
+    var autoBright: Boolean get() = gb("autoBright", false); set(v) = sb("autoBright", v)
+    var nightBright: Int get() = gi("nightBright", 40); set(v) = si("nightBright", v)
+    /** plain | stars | moving | photo */
+    var background: String get() = gs("bg", "plain"); set(v) = ss("bg", v)
+    /** Speed warning in the display unit (km/h or mph); 0 = off */
+    var speedLimit: Int get() = gi("speedLimit", 0); set(v) = si("speedLimit", v)
+    var bubble: Boolean get() = gb("bubble", false); set(v) = sb("bubble", v)
+    var bubbleX: Int get() = gi("bubbleX", 40); set(v) = si("bubbleX", v)
+    var bubbleY: Int get() = gi("bubbleY", 120); set(v) = si("bubbleY", v)
+    /** off | zlink | <package name> */
+    var autoApp: String get() = gs("autoApp", "zlink"); set(v) = ss("autoApp", v)
+    var autoPlay: Boolean get() = gb("autoPlay", true); set(v) = sb("autoPlay", v)
+    /** seconds before coming back to the dashboard after auto-start; 0 = stay in the app */
+    var autoReturn: Int get() = gi("autoReturn", 0); set(v) = si("autoReturn", v)
+    var lastBoot: Int get() = gi("lastBoot", -1); set(v) = si("lastBoot", v)
+    /** minutes parked before the screen saver shows; 0 = off */
+    var saverMin: Int get() = gi("saverMin", 0); set(v) = si("saverMin", v)
+    var splitApp: String get() = gs("splitApp", ""); set(v) = ss("splitApp", v)
+    var pages: String get() = gs("pages", ""); set(v) = ss("pages", v)
+    var currency: String get() = gs("currency", defaultCurrency()); set(v) = ss("currency", v)
+
+    private fun defaultCurrency(): String = try {
+        java.util.Currency.getInstance(Locale.getDefault()).symbol
+    } catch (_: Exception) { "$" }
+
     fun saveTrip(m: Double, movingMs: Long, maxKmh: Float, start: Long) {
         p.edit().putFloat("tripM", m.toFloat()).putLong("tripMs", movingMs).putFloat("tripMax", maxKmh).putLong("tripStart", start).apply()
     }

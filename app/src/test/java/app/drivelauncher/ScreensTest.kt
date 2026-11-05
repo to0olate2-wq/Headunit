@@ -4,6 +4,9 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Looper
 import android.os.SystemClock
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ScrollView
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,7 +28,11 @@ import java.io.FileOutputStream
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ScreensTest {
 
-    private fun sample() {
+    private val pagesJson = """[{"layout":"classic","cards":["speed","trip","road","gauges","map","media"]},""" +
+        """{"layout":"map","cards":["speed","media","map"]},""" +
+        """{"layout":"grid","cards":["clock","compass","car","logo"]}]"""
+
+    private fun sample(act: MainActivity) {
         Obd.stop()
         Gps.permission = true
         Gps.speedKmh = 42f
@@ -46,6 +53,11 @@ class ScreensTest {
         Obd.detail = "Connected"
         mapOf("rpm" to 3053f, "speed" to 42f, "coolant" to 88f, "throttle" to 18f, "volt" to 13.4f, "map" to 115f,
             "maf" to 13.1f, "iat" to 34f, "load" to 42f, "fuel" to 64f).forEach { (k, v) -> Obd.values[k] = v }
+        Obd.mil = true
+        Obd.dtcStored = listOf("P0133", "P0442")
+        Obd.dtcPending = listOf("P0171")
+        Obd.dtcAt = System.currentTimeMillis()
+        Obd.dtcStatus = "2 stored, 1 pending"
         NavHub.active = true
         NavHub.title = "300 m"
         NavHub.text = "Turn right onto Sukhumvit Rd"
@@ -55,64 +67,100 @@ class ScreensTest {
         Weather.tempC = 31f
         Weather.code = 0
         Weather.isDay = false
+        Prefs.speedLimit = 40
+        SpeedAlert.check(act)
         MediaHub.showForTest(Track("Midnight Ring Road", "The Low Beams", "com.zjinnova.zlink", null,
             236_000L, 145_000L, SystemClock.elapsedRealtime(), true, 1f, "notification"))
+        Odometer.set(84_250.0)
+        val now = System.currentTimeMillis()
+        val day = 86_400_000L
+        val route = listOf(doubleArrayOf(13.7466, 100.5393), doubleArrayOf(13.7440, 100.5480), doubleArrayOf(13.7380, 100.5600),
+            doubleArrayOf(13.7300, 100.5690), doubleArrayOf(13.7230, 100.5800))
+        Trips.addForTest(TripRecord(now - 2 * 3_600_000L, now - 2 * 3_600_000L + 27 * 60_000L, 12_400.0, 24 * 60_000L, 74f,
+            13.7466, 100.5393, 13.7230, 100.5800, 1.1), route)
+        Trips.addForTest(TripRecord(now - day - 5 * 3_600_000L, now - day - 5 * 3_600_000L + 41 * 60_000L, 23_900.0, 36 * 60_000L, 96f,
+            13.7230, 100.5800, 13.7466, 100.5393, 2.0), route.reversed())
+        FuelLog.add(FuelEntry(now - 20 * day, 42.0, 1470.0, 83_100.0, true))
+        FuelLog.add(FuelEntry(now - 9 * day, 38.5, 1386.0, 83_690.0, true))
+        FuelLog.add(FuelEntry(now - 2 * day, 20.0, 730.0, 84_050.0, false))
+        ServiceLog.list()[0].lastKm = 74_700.0
+        ServiceLog.save()
+        Parking.save(13.7472, 100.5401, now - 40 * 60_000L)
     }
 
-    private fun shoot(name: String) {
-        Prefs.init(RuntimeEnvironment.getApplication())
+    private fun idle() = shadowOf(Looper.getMainLooper()).idle()
+
+    private fun save(act: MainActivity, name: String) {
+        idle()
+        val v = act.window.decorView
+        assertTrue("window has no size", v.width > 0 && v.height > 0)
+        val bmp = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888)
+        v.draw(Canvas(bmp))
+        val dir = File("build/screens").apply { mkdirs() }
+        FileOutputStream(File(dir, "$name.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    private fun findScroll(v: View): ScrollView? {
+        if (v is ScrollView && v.isShown) return v
+        if (v is ViewGroup) for (i in 0 until v.childCount) findScroll(v.getChildAt(i))?.let { return it }
+        return null
+    }
+
+    private fun shoot(name: String, full: Boolean) {
+        val app = RuntimeEnvironment.getApplication()
+        Prefs.init(app)
         Prefs.obdMode = "off"
+        Prefs.theme = "night"
+        Prefs.pages = pagesJson
         val ctrl = Robolectric.buildActivity(MainActivity::class.java).setup()
         val act = ctrl.get()
         Obd.stop()
         Thread.sleep(500)
-        sample()
-        shadowOf(Looper.getMainLooper()).idle()
-        // give map tiles a moment to download, then draw
-        val pages = listOf(MainActivity.Page.DRIVE, MainActivity.Page.TELEMETRY, MainActivity.Page.SOURCES, MainActivity.Page.APPS)
-        val dir = File("build/screens").apply { mkdirs() }
-        for (p in pages) {
-            act.show(p)
-            if (p == MainActivity.Page.DRIVE) {
-                Thread.sleep(5000)
-                shadowOf(Looper.getMainLooper()).idle()
-                SystemClock.sleep(9000) // advance the simulated clock so failed tiles are retried
-                act.show(p)
-                Thread.sleep(3000)
-                println(Diag.recentLines(60).joinToString("\n"))
+        sample(act)
+        act.rebuild()
+        idle()
+        // home page 1, after map tiles have had a moment to download
+        act.showHome(0)
+        Thread.sleep(5000); idle()
+        SystemClock.sleep(9000) // let failed tiles retry
+        act.showHome(0); Thread.sleep(3000)
+        Gps.lastFix = SystemClock.elapsedRealtime()
+        save(act, "$name-home1")
+        act.showHome(1); Thread.sleep(2000); save(act, "$name-home2")
+        act.showHome(2); save(act, "$name-home3")
+        act.show(MainActivity.Page.TELEMETRY); save(act, "$name-telemetry")
+        if (full) {
+            for ((i, t) in listOf("trips", "fuel", "service", "engine", "parking").withIndex()) {
+                act.showCarTab(i)
+                if (t == "parking") Thread.sleep(2500)
+                save(act, "$name-car-$t")
             }
-            shadowOf(Looper.getMainLooper()).idle()
-            val v = act.window.decorView
-            assertTrue("window has no size", v.width > 0 && v.height > 0)
-            val bmp = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888)
-            v.draw(Canvas(bmp))
-            FileOutputStream(File(dir, "$name-${p.name.lowercase()}.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            if (p == MainActivity.Page.SOURCES) {
-                val sv = findScroll(v)
-                if (sv != null) {
-                    sv.scrollTo(0, 100_000)
-                    shadowOf(Looper.getMainLooper()).idle()
-                    val b2 = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888)
-                    v.draw(Canvas(b2))
-                    FileOutputStream(File(dir, "$name-sources-bottom.png")).use { b2.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                }
+            act.show(MainActivity.Page.SOURCES); save(act, "$name-settings")
+            findScroll(act.window.decorView)?.let { sv ->
+                sv.scrollTo(0, 1100); save(act, "$name-settings2")
+                sv.scrollTo(0, 100_000); save(act, "$name-settings3")
             }
+            act.show(MainActivity.Page.APPS); save(act, "$name-apps")
+            // day look
+            Prefs.theme = "day"
+            act.applyTheme()
+            act.showHome(0); Thread.sleep(3000); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-day-home1")
+            act.showCarTab(1); save(act, "$name-day-car-fuel")
+            Prefs.theme = "night"
+            Prefs.background = "stars"
+            act.applyTheme()
+            act.showHome(1); Thread.sleep(1500); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-stars-home2")
         }
+        println(Diag.recentLines(80).joinToString("\n"))
         ctrl.pause().stop().destroy()
     }
 
-    private fun findScroll(v: android.view.View): android.widget.ScrollView? {
-        if (v is android.widget.ScrollView && v.isShown) return v
-        if (v is android.view.ViewGroup) for (i in 0 until v.childCount) findScroll(v.getChildAt(i))?.let { return it }
-        return null
-    }
-
     @Test @Config(sdk = [34], qualifiers = "w1280dp-h720dp-land-mdpi")
-    fun ts10s_1280x720() = shoot("1280x720")
+    fun ts10s_1280x720() = shoot("1280x720", true)
 
     @Test @Config(sdk = [34], qualifiers = "w1024dp-h600dp-land-mdpi")
-    fun small_1024x600() = shoot("1024x600")
+    fun small_1024x600() = shoot("1024x600", false)
 
     @Test @Config(sdk = [34], qualifiers = "w768dp-h1024dp-port-mdpi")
-    fun portrait_768x1024() = shoot("768x1024")
+    fun portrait_768x1024() = shoot("768x1024", true)
 }

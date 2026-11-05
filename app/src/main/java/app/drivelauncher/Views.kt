@@ -19,6 +19,9 @@ import kotlin.math.min
 
 /** Round or rounded-square touch button with a drawn icon. Always >= 44 design px. */
 class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : View(ctx) {
+    /** An app icon to show instead of the drawn icon. */
+    var drawable: android.graphics.drawable.Drawable? = null
+        set(v) { field = v; invalidate() }
     var fg = C.TEXT2
     var bgColor = 0
     var radius = 14f
@@ -56,7 +59,14 @@ class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : V
             bgp.color = 0x26FFFFFF
             if (circle) c.drawOval(rf, bgp) else c.drawRoundRect(rf, S.p(radius), S.p(radius), bgp)
         }
-        Icons.draw(c, icon, w / 2f, h / 2f, S.p(iconSize), fg, sw)
+        val d = drawable
+        if (d != null) {
+            val sz = S.p(iconSize + 6f)
+            d.setBounds(((w - sz) / 2).toInt(), ((h - sz) / 2).toInt(), ((w + sz) / 2).toInt(), ((h + sz) / 2).toInt())
+            d.draw(c)
+        } else {
+            Icons.draw(c, icon, w / 2f, h / 2f, S.p(iconSize), fg, sw)
+        }
     }
 }
 
@@ -93,12 +103,13 @@ class SpeedGauge(ctx: Context) : View(ctx) {
     var text = "0"
     var unit = "KM/H"
     var dim = false
+    var warn = false
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
 
-    fun set(frac: Float, text: String, unit: String, dim: Boolean) {
-        if (frac != this.frac || text != this.text || unit != this.unit || dim != this.dim) {
-            this.frac = frac; this.text = text; this.unit = unit; this.dim = dim
+    fun set(frac: Float, text: String, unit: String, dim: Boolean, warn: Boolean = false) {
+        if (frac != this.frac || text != this.text || unit != this.unit || dim != this.dim || warn != this.warn) {
+            this.frac = frac; this.text = text; this.unit = unit; this.dim = dim; this.warn = warn
             invalidate()
         }
     }
@@ -106,9 +117,9 @@ class SpeedGauge(ctx: Context) : View(ctx) {
     override fun onDraw(c: Canvas) {
         val sw = S.p(12f)
         val (cx, cy, r) = Arc.fit(width.toFloat(), height.toFloat(), sw).let { Triple(it[0], it[1], it[2]) }
-        Arc.draw(c, cx, cy, r, frac, sw, C.accent, p)
+        Arc.draw(c, cx, cy, r, frac, sw, if (warn) C.WARN else C.accent, p)
         tp.typeface = F.numeric
-        tp.color = if (dim) C.MUTED else C.TEXT
+        tp.color = if (warn) C.WARN else if (dim) C.MUTED else C.TEXT
         tp.textSize = r * 0.9f
         tp.letterSpacing = 0f
         val maxW = r * 1.45f
@@ -268,7 +279,7 @@ class ArtView(ctx: Context) : View(ctx) {
         val b = bmp
         if (b == null || b.isRecycled) {
             p.shader = null
-            p.color = 0xFF232830.toInt()
+            p.color = C.ART_BG
             c.drawRoundRect(rf, rad, rad, p)
             Icons.draw(c, Ic.MUSIC, w / 2, h / 2, min(w, h) * 0.42f, C.MUTED)
             return
@@ -330,18 +341,18 @@ class RoadView(ctx: Context) : View(ctx) {
         fill.color = C.ROAD_BG
         c.drawRect(0f, 0f, w, h, fill)
         line.pathEffect = null
-        line.color = 0xFF1F242B.toInt(); line.strokeWidth = max(1f, s)
+        line.color = C.HORIZON; line.strokeWidth = max(1f, s)
         c.drawLine(0f, hy, w, hy, line)
 
         fun quad(x1: Float, x2: Float, x3: Float, x4: Float) {
             path.reset()
             path.moveTo(x1 * sx, h); path.lineTo(x2 * sx, h); path.lineTo(x3 * sx, hy); path.lineTo(x4 * sx, hy); path.close()
         }
-        quad(40f, 520f, 310f, 250f); fill.color = 0xFF15191F.toInt(); c.drawPath(path, fill)
+        quad(40f, 520f, 310f, 250f); fill.color = C.ROAD; c.drawPath(path, fill)
         quad(200f, 360f, 290f, 270f); fill.color = withAlpha(C.accent, 0.14f); c.drawPath(path, fill)
 
         line.strokeWidth = 3f * s
-        line.color = 0xFF3A414B.toInt()
+        line.color = C.ROAD_EDGE
         c.drawLine(40f * sx, h, 250f * sx, hy, line)
         c.drawLine(520f * sx, h, 310f * sx, hy, line)
 
@@ -363,18 +374,103 @@ class RoadView(ctx: Context) : View(ctx) {
         c.translate(w / 2f - 280f * s, h - 388f * s)
         c.scale(s, s)
         fill.color = 0x66000000; rf.set(240f, 364f, 320f, 380f); c.drawOval(rf, fill)
-        fill.color = 0xFFD7DBE1.toInt()
+        fill.color = C.CAR_BODY
         rf.set(244f, 304f, 251f, 314f); c.drawRoundRect(rf, 2f, 2f, fill)
         rf.set(309f, 304f, 316f, 314f); c.drawRoundRect(rf, 2f, 2f, fill)
         rf.set(250f, 280f, 310f, 372f); c.drawRoundRect(rf, 16f, 16f, fill)
-        fill.color = 0xFF232830.toInt(); rf.set(257f, 300f, 303f, 318f); c.drawRoundRect(rf, 5f, 5f, fill)
-        fill.color = 0xFFBFC5CD.toInt(); rf.set(258f, 320f, 302f, 348f); c.drawRoundRect(rf, 6f, 6f, fill)
-        fill.color = 0xFF232830.toInt(); rf.set(258f, 350f, 302f, 360f); c.drawRoundRect(rf, 3f, 3f, fill)
+        fill.color = C.CAR_GLASS; rf.set(257f, 300f, 303f, 318f); c.drawRoundRect(rf, 5f, 5f, fill)
+        fill.color = C.CAR_ROOF; rf.set(258f, 320f, 302f, 348f); c.drawRoundRect(rf, 6f, 6f, fill)
+        fill.color = C.CAR_GLASS; rf.set(258f, 350f, 302f, 360f); c.drawRoundRect(rf, 3f, 3f, fill)
         fill.color = C.WARN
         rf.set(252f, 364f, 266f, 369f); c.drawRoundRect(rf, 2f, 2f, fill)
         rf.set(294f, 364f, 308f, 369f); c.drawRoundRect(rf, 2f, 2f, fill)
         c.restore()
 
         if (speedKmh > 1f && isShown) postInvalidateDelayed(40) else lastFrame = 0L
+    }
+}
+
+
+/** Plain colour, a starfield (still or slowly moving) or the owner's photo behind the cards. */
+class BackgroundView(ctx: Context, private val kind: String, private val photo: Bitmap?) : View(ctx) {
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val stars = FloatArray(3 * 160).also { a ->
+        val r = java.util.Random(7)
+        for (i in 0 until 160) { a[i * 3] = r.nextFloat(); a[i * 3 + 1] = r.nextFloat(); a[i * 3 + 2] = r.nextFloat() }
+    }
+    private var t0 = 0L
+    private val m = Matrix()
+
+    override fun onDraw(c: Canvas) {
+        val w = width.toFloat(); val h = height.toFloat()
+        p.shader = null
+        p.color = C.BG
+        c.drawRect(0f, 0f, w, h, p)
+        when (kind) {
+            "photo" -> {
+                val b = photo ?: return
+                val sc = max(w / b.width, h / b.height)
+                m.reset(); m.setScale(sc, sc); m.postTranslate((w - b.width * sc) / 2f, (h - b.height * sc) / 2f)
+                c.drawBitmap(b, m, p)
+                p.color = if (C.night) 0x99000000.toInt() else 0x66FFFFFF
+                c.drawRect(0f, 0f, w, h, p)
+            }
+            "stars", "moving" -> {
+                val now = System.currentTimeMillis()
+                if (t0 == 0L) t0 = now
+                val drift = if (kind == "moving") ((now - t0) % 600_000L) / 600_000f else 0f
+                for (i in 0 until stars.size / 3) {
+                    val depth = stars[i * 3 + 2]
+                    val x = ((stars[i * 3] + drift * (0.2f + depth)) % 1f) * w
+                    val y = stars[i * 3 + 1] * h
+                    p.color = if (C.night) withAlpha(0xFFFFFFFF.toInt(), 0.15f + depth * 0.5f) else withAlpha(0xFF8A95A3.toInt(), 0.25f + depth * 0.4f)
+                    c.drawCircle(x, y, S.p(0.6f + depth * 1.4f), p)
+                }
+                if (kind == "moving" && isShown) postInvalidateDelayed(80)
+            }
+        }
+    }
+}
+
+/** Compass rose that turns with the car's heading. */
+class CompassView(ctx: Context) : View(ctx) {
+    var heading = 0f
+        set(v) { if (field != v) { field = v; invalidate() } }
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
+    private val path = Path()
+
+    override fun onDraw(c: Canvas) {
+        val w = width.toFloat(); val h = height.toFloat()
+        val r = min(w, h) / 2f * 0.9f
+        val cx = w / 2; val cy = h / 2
+        p.style = Paint.Style.STROKE; p.strokeWidth = S.p(3f); p.color = C.TRACK
+        c.drawCircle(cx, cy, r, p)
+        c.save()
+        c.rotate(-heading, cx, cy)
+        for (i in 0 until 36) {
+            val a = Math.toRadians(i * 10.0)
+            val long = i % 9 == 0
+            val r1 = r * (if (long) 0.82f else 0.9f)
+            p.strokeWidth = S.p(if (long) 3f else 1.5f)
+            p.color = if (long) C.TEXT2 else C.MUTED
+            c.drawLine(cx + (r1 * Math.sin(a)).toFloat(), cy - (r1 * Math.cos(a)).toFloat(),
+                cx + (r * 0.97f * Math.sin(a)).toFloat(), cy - (r * 0.97f * Math.cos(a)).toFloat(), p)
+        }
+        p.style = Paint.Style.FILL
+        p.typeface = F.semibold
+        p.textSize = r * 0.18f
+        val labels = arrayOf("N", "E", "S", "W")
+        for (i in 0 until 4) {
+            val a = Math.toRadians(i * 90.0)
+            p.color = if (i == 0) C.accent else C.TEXT2
+            val rr = r * 0.62f
+            c.drawText(labels[i], cx + (rr * Math.sin(a)).toFloat(), cy - (rr * Math.cos(a)).toFloat() + p.textSize * 0.35f, p)
+        }
+        c.restore()
+        // fixed pointer for the car's direction
+        path.reset()
+        path.moveTo(cx, cy - r * 0.38f); path.lineTo(cx + r * 0.14f, cy + r * 0.18f); path.lineTo(cx, cy + r * 0.08f); path.lineTo(cx - r * 0.14f, cy + r * 0.18f); path.close()
+        p.color = C.accent
+        c.drawPath(path, p)
     }
 }

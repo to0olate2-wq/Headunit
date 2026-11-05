@@ -420,6 +420,8 @@ object MediaHub {
         return try { hit?.actionIntent?.send(); hit != null } catch (_: Exception) { false }
     }
 
+    fun key(ctx: Context, code: Int) = mediaKey(ctx, code)
+
     private fun mediaKey(ctx: Context, code: Int) {
         val am = ctx.getSystemService(AudioManager::class.java) ?: return
         val t = SystemClock.uptimeMillis()

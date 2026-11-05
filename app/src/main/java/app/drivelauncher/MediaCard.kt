@@ -6,8 +6,8 @@ import android.widget.TextView
 import android.widget.Toast
 
 /** "Now playing" card. Small on the Drive screen, big (with up-next list) on Telemetry. */
-class MediaCard(private val a: MainActivity, private val big: Boolean) {
-    val view: LinearLayout = a.vbox(if (big) 14f else 12f)
+class MediaCard(private val a: MainActivity, private val big: Boolean) : Card {
+    override val view: LinearLayout = a.vbox(if (big) 14f else 12f)
     private val art = ArtView(a)
     private val title: TextView = a.label(if (big) 20f else 18f, C.TEXT, F.semibold, lines = if (big) 2 else 1)
     private val sub: TextView = a.label(if (big) 15f else 14f, C.MUTED, F.regular)
@@ -99,9 +99,9 @@ class MediaCard(private val a: MainActivity, private val big: Boolean) {
         view.setOnClickListener { if (!MediaHub.accessGranted) a.show(MainActivity.Page.SOURCES) }
     }
 
-    fun update() {
+    override fun update() {
         val t = MediaHub.current
-        play.set(fg = C.BG, bg = C.accent, icon = if (t?.playing == true) Ic.PAUSE else Ic.PLAY)
+        play.set(fg = C.ON_ACCENT, bg = C.accent, icon = if (t?.playing == true) Ic.PAUSE else Ic.PLAY)
         if (MediaHub.version != shown) {
             shown = MediaHub.version
             if (t == null) {
