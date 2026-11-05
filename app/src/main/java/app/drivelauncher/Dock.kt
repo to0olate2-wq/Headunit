@@ -24,6 +24,7 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
     private val clock: TextView = a.label(if (Skin.sport) 24f else if (Skin.glass) 20f else 18f, C.TEXT,
         if (Skin.sport) F.numeric else if (Skin.glass) F.medium else F.semibold).tnum()
     private var lastKey = ""
+    private val clockSep: View = a.divider()
 
     companion object {
         // Aurora Glass app tile colours (top-left, bottom-right)
@@ -72,8 +73,8 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
             Skin.sport -> view.pad(0f)
             else -> { view.background = roundBg(C.CARD, 18f, C.BORDER); view.pad(8f, 0f) }
         }
-        if (Skin.id != Skin.CLASSIC) view.dividerDrawable = GradientDrawable().apply { setSize(S.i(8), S.i(8)) }
-        val size = S.i(if (Skin.id == Skin.CLASSIC) 48 else 56)
+        if (Skin.id != Skin.CLASSIC) view.dividerDrawable = GradientDrawable().apply { setSize(S.i(5), S.i(5)) }
+        val size = S.i(if (Skin.id == Skin.CLASSIC) 48 else 52)
         fun add(v: View) = view.addView(v, lp(size, size))
         add(home)
         if (!portrait) view.addView(a.divider())
@@ -88,7 +89,8 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
             view.addView(a.divider())
             val st = a.hbox(14f)
             st.pad(6f, 0f)
-            st.addView(gpsDot, lp(WRAP, WRAP)); st.addView(obdDot, lp(WRAP, WRAP)); st.addView(extra, lp(WRAP, WRAP))
+            st.addView(gpsDot, lp(WRAP, WRAP)); st.addView(obdDot, lp(WRAP, WRAP))
+            if (Skin.id == Skin.CLASSIC) st.addView(extra, lp(WRAP, WRAP))
             view.addView(st, lp(WRAP, WRAP))
         }
         view.addView(a.spacer(), lp(0, 1, 1f))
@@ -99,8 +101,8 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
         if (!portrait) view.addView(a.divider())
         for (slot in 0 until (if (portrait) 2 else 4)) slotButton(slot)?.let { add(it) }
         add(settings)
-        if (!portrait) view.addView(a.divider())
-        view.addView(clock, lp(WRAP, WRAP).apply { leftMargin = S.i(6); rightMargin = S.i(12) })
+        if (!portrait) view.addView(clockSep)
+        view.addView(clock, lp(WRAP, WRAP).apply { leftMargin = S.i(6); rightMargin = S.i(if (Skin.id == Skin.CLASSIC) 12 else 8) })
     }
 
     /** One of the owner's app buttons. Tap and hold to change it. */
@@ -158,6 +160,8 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
             else -> ""
         })
         clock.put(time)
+        clock.showIf(time.isNotEmpty())
+        clockSep.showIf(time.isNotEmpty())
     }
 }
 

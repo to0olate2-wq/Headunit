@@ -85,9 +85,9 @@ class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : V
                     bgp.color = withAlpha(t[0], 0.35f)
                     rf.inset(-S.p(4f), -S.p(4f)); c.drawRoundRect(rf, rad + S.p(4f), rad + S.p(4f), bgp); rf.inset(S.p(4f), S.p(4f))
                 }
-                bgp.shader = LinearGradient(rf.left, rf.top, rf.right, rf.bottom, t[0], t[1], Shader.TileMode.CLAMP)
+                bgp.color = 0xFF000000.toInt(); bgp.shader = LinearGradient(rf.left, rf.top, rf.right, rf.bottom, t[0], t[1], Shader.TileMode.CLAMP)
                 c.drawRoundRect(rf, rad, rad, bgp)
-                bgp.shader = LinearGradient(0f, rf.top, 0f, rf.centerY(), 0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
+                bgp.color = 0xFF000000.toInt(); bgp.shader = LinearGradient(0f, rf.top, 0f, rf.centerY(), 0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
                 c.drawRoundRect(rf, rad, rad, bgp)
                 bgp.shader = null
                 if (ring) {
@@ -101,9 +101,9 @@ class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : V
                 val r = min(w, h) / 2f - inset
                 bgp.color = withAlpha(C.accent, 0.10f); c.drawCircle(w / 2, h / 2, r + S.p(6f), bgp)
                 bgp.color = withAlpha(C.accent, 0.18f); c.drawCircle(w / 2, h / 2, r + S.p(3f), bgp)
-                bgp.shader = LinearGradient(w / 2 - r, h / 2 - r, w / 2 + r, h / 2 + r, C.accent, Skin.accent2, Shader.TileMode.CLAMP)
+                bgp.color = 0xFF000000.toInt(); bgp.shader = LinearGradient(w / 2 - r, h / 2 - r, w / 2 + r, h / 2 + r, C.accent, Skin.accent2, Shader.TileMode.CLAMP)
                 c.drawCircle(w / 2, h / 2, r, bgp)
-                bgp.shader = LinearGradient(0f, h / 2 - r, 0f, h / 2, 0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
+                bgp.color = 0xFF000000.toInt(); bgp.shader = LinearGradient(0f, h / 2 - r, 0f, h / 2, 0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
                 c.drawCircle(w / 2, h / 2, r, bgp)
                 bgp.shader = null
             }
@@ -112,7 +112,7 @@ class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : V
                 bgp.color = if (bgColor != 0) bgColor else C.CARD2
                 c.drawPath(path, bgp)
                 if (bgColor == 0 || bgColor == C.CARD2) {
-                    bgp.shader = LinearGradient(0f, 0f, 0f, h, if (C.night) 0x14FFFFFF else 0x59FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
+                    bgp.color = 0xFF000000.toInt(); bgp.shader = LinearGradient(0f, 0f, 0f, h, if (C.night) 0x14FFFFFF else 0x59FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
                     c.drawPath(path, bgp); bgp.shader = null
                 }
                 if (underline != 0) {
@@ -187,7 +187,7 @@ object Arc {
                 p.strokeWidth = sw
                 val g = SweepGradient(cx, cy, intArrayOf(color, Skin.accent2, Skin.accent2), floatArrayOf(0f, 0.75f, 1f))
                 m.setRotate(135f, cx, cy); g.setLocalMatrix(m)
-                p.shader = g
+                p.color = 0xFF000000.toInt(); p.shader = g
                 c.drawArc(rf, 135f, 270f * f, false, p)
                 p.shader = null
             } else {
@@ -361,7 +361,7 @@ class Bar(ctx: Context) : View(ctx) {
                 rf.set(x0 - h, top - h, fx + h, top + 2 * h)
                 p.color = withAlpha(col, 0.16f)
                 c.drawRoundRect(rf, h * 1.5f, h * 1.5f, p)
-                p.shader = LinearGradient(x0, 0f, x1, 0f, col, Skin.accent2, Shader.TileMode.CLAMP)
+                p.color = 0xFF000000.toInt(); p.shader = LinearGradient(x0, 0f, x1, 0f, col, Skin.accent2, Shader.TileMode.CLAMP)
             } else p.color = col
             rf.set(x0, top, fx, top + h)
             c.drawRoundRect(rf, rr, rr, p)
@@ -401,9 +401,13 @@ class ArtView(ctx: Context) : View(ctx) {
         val b = bmp
         if (b == null || b.isRecycled) {
             p.shader = null
-            p.color = C.ART_BG
+            if (Skin.glass) {
+                p.color = 0xFF000000.toInt()
+                p.shader = LinearGradient(0f, 0f, w, h, withAlpha(Dock.MUSIC[0], 0.85f), withAlpha(Dock.MUSIC[1], 0.85f), Shader.TileMode.CLAMP)
+            } else p.color = C.ART_BG
             c.drawRoundRect(rf, rad, rad, p)
-            Icons.draw(c, Ic.MUSIC, w / 2, h / 2, min(w, h) * 0.42f, C.MUTED)
+            p.shader = null
+            Icons.draw(c, Ic.MUSIC, w / 2, h / 2, min(w, h) * 0.42f, if (Skin.glass) C.ON_GRAD else C.MUTED)
             return
         }
         val sh = BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
@@ -412,7 +416,7 @@ class ArtView(ctx: Context) : View(ctx) {
         m.setScale(scale, scale)
         m.postTranslate((w - b.width * scale) / 2f, (h - b.height * scale) / 2f)
         sh.setLocalMatrix(m)
-        p.shader = sh
+        p.color = 0xFF000000.toInt(); p.shader = sh
         c.drawRoundRect(rf, rad, rad, p)
         p.shader = null
     }
@@ -528,7 +532,7 @@ class BackgroundView(ctx: Context, private val kind: String, private val photo: 
     private var weave: BitmapShader? = null
 
     private fun glow(c: Canvas, x: Float, y: Float, r: Float, color: Int, alpha: Float) {
-        p.shader = RadialGradient(x, y, r, withAlpha(color, alpha), withAlpha(color, 0f), Shader.TileMode.CLAMP)
+        p.color = 0xFF000000.toInt(); p.shader = RadialGradient(x, y, r, withAlpha(color, alpha), withAlpha(color, 0f), Shader.TileMode.CLAMP)
         c.drawRect(x - r, y - r, x + r, y + r, p)
         p.shader = null
     }
@@ -560,17 +564,17 @@ class BackgroundView(ctx: Context, private val kind: String, private val photo: 
             val lo = if (C.night) 0xFF060708.toInt() else 0xFFD9DCE1.toInt()
             for (i in 0..1) for (j in 0..1) {
                 val l = (i * n).toFloat(); val tp = (j * n).toFloat()
-                q.shader = if ((i + j) % 2 == 0) LinearGradient(l, tp, l, tp + n, hi, lo, Shader.TileMode.CLAMP)
+                q.color = 0xFF000000.toInt(); q.shader = if ((i + j) % 2 == 0) LinearGradient(l, tp, l, tp + n, hi, lo, Shader.TileMode.CLAMP)
                     else LinearGradient(l, tp, l + n, tp, hi, lo, Shader.TileMode.CLAMP)
                 bc.drawRect(l, tp, l + n, tp + n, q)
             }
             BitmapShader(b, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT).also { weave = it }
         }
-        p.shader = sh
+        p.color = 0xFF000000.toInt(); p.shader = sh
         c.drawRect(0f, 0f, w, h, p)
         p.shader = null
         if (C.night) {
-            p.shader = RadialGradient(w / 2, h * 0.45f, max(w, h) * 0.75f, intArrayOf(0x00000000, 0x00000000, 0xC0000000.toInt()),
+            p.color = 0xFF000000.toInt(); p.shader = RadialGradient(w / 2, h * 0.45f, max(w, h) * 0.75f, intArrayOf(0x00000000, 0x00000000, 0xC0000000.toInt()),
                 floatArrayOf(0f, 0.35f, 1f), Shader.TileMode.CLAMP)
             c.drawRect(0f, 0f, w, h, p)
             p.shader = null

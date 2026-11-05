@@ -115,13 +115,13 @@ class GlassBg(private val fill: Int, private val r: Float, var glow: Int = 0) : 
             clip.reset(); clip.addRoundRect(rf, rad, rad, Path.Direction.CW)
             c.clipPath(clip)
             val gr = max(rf.width(), rf.height()) * 0.75f
-            p.shader = RadialGradient(rf.left + rf.width() * 0.12f, rf.top + rf.height() * 0.1f, gr,
+            p.color = 0xFF000000.toInt(); p.shader = RadialGradient(rf.left + rf.width() * 0.12f, rf.top + rf.height() * 0.1f, gr,
                 intArrayOf(withAlpha(glow, if (C.night) 0.38f else 0.30f), withAlpha(glow, 0f)), null, Shader.TileMode.CLAMP)
             c.drawRect(rf, p)
             c.restore()
         }
         // light falling on the top edge
-        p.shader = LinearGradient(0f, rf.top, 0f, rf.top + min(rf.height(), S.p(140f)),
+        p.color = 0xFF000000.toInt(); p.shader = LinearGradient(0f, rf.top, 0f, rf.top + min(rf.height(), S.p(140f)),
             if (C.night) 0x14FFFFFF else 0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
         c.drawRoundRect(rf, rad, rad, p)
         // border: brighter at the top
@@ -129,7 +129,7 @@ class GlassBg(private val fill: Int, private val r: Float, var glow: Int = 0) : 
         rf.inset(sw / 2, sw / 2)
         p.style = Paint.Style.STROKE
         p.strokeWidth = sw
-        p.shader = LinearGradient(0f, rf.top, 0f, rf.bottom,
+        p.color = 0xFF000000.toInt(); p.shader = LinearGradient(0f, rf.top, 0f, rf.bottom,
             if (C.night) 0x38FFFFFF else 0xF2FFFFFF.toInt(), if (C.night) 0x0DFFFFFF else 0x80FFFFFF.toInt(), Shader.TileMode.CLAMP)
         c.drawRoundRect(rf, rad, rad, p)
         p.shader = null
@@ -160,7 +160,7 @@ class ChamferBg(private val fill: Int, private val cut: Float, private val flat:
         p.color = fill
         c.drawPath(path, p)
         if (!flat) {
-            p.shader = LinearGradient(0f, t, 0f, bt, if (C.night) 0x12FFFFFF else 0x66FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
+            p.color = 0xFF000000.toInt(); p.shader = LinearGradient(0f, t, 0f, bt, if (C.night) 0x12FFFFFF else 0x66FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
             c.drawPath(path, p)
             p.shader = null
         }

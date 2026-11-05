@@ -114,9 +114,9 @@ object CarArt {
         // floor glow and ground line
         p.style = Paint.Style.FILL
         c.save(); c.scale(1f, 0.2f, 322f, 188f)
-        p.shader = glowSh; c.drawCircle(322f, 188f, 330f, p)
+        p.color = 0xFF000000.toInt(); p.shader = glowSh; c.drawCircle(322f, 188f, 330f, p)
         c.restore()
-        p.shader = groundSh; c.drawRect(10f, 191f, 630f, 192f, p)
+        p.color = 0xFF000000.toInt(); p.shader = groundSh; c.drawRect(10f, 191f, 630f, 192f, p)
         if (moving) {
             p.shader = null
             p.style = Paint.Style.STROKE; p.strokeWidth = 2f
@@ -130,15 +130,15 @@ object CarArt {
         p.color = if (C.night) 0xB3000000.toInt() else 0x40000000
         rf.set(22f, 182f, 622f, 200f); c.drawOval(rf, p)
         // body
-        p.shader = bodySh; c.drawPath(body, p)
-        p.shader = winSh; c.drawPath(rearWin, p); c.drawPath(frontWin, p)
+        p.color = 0xFF000000.toInt(); p.shader = bodySh; c.drawPath(body, p)
+        p.color = 0xFF000000.toInt(); p.shader = winSh; c.drawPath(rearWin, p); c.drawPath(frontWin, p)
         p.shader = null
         p.style = Paint.Style.STROKE
         p.strokeWidth = 10f; p.color = 0x1FFFFFFF
         c.drawLine(214f, 100f, 300f, 69f, p)
         p.strokeWidth = 1.6f; p.color = withAlpha(C.accent, 0.6f)
         c.drawPath(roof, p)
-        p.strokeWidth = 2f; p.shader = shineSh
+        p.strokeWidth = 2f; p.color = 0xFF000000.toInt(); p.shader = shineSh
         c.drawPath(shine, p)
         p.shader = null
         p.strokeWidth = 1.5f; p.color = 0x8C000000.toInt()
@@ -172,10 +172,10 @@ object CarArt {
         c.translate(x, y)
         p.style = Paint.Style.FILL
         p.shader = null; p.color = 0xFF08090C.toInt(); c.drawCircle(0f, 0f, 37f, p)
-        p.shader = rimSh; c.drawCircle(0f, 0f, 27f, p)
+        p.color = 0xFF000000.toInt(); p.shader = rimSh; c.drawCircle(0f, 0f, 27f, p)
         p.shader = null; p.color = 0xFF2A2F37.toInt(); c.drawCircle(0f, 0f, 21f, p)
         c.rotate(deg)
-        p.style = Paint.Style.STROKE; p.strokeWidth = 4f; p.strokeCap = Paint.Cap.ROUND; p.shader = rimSh
+        p.style = Paint.Style.STROKE; p.strokeWidth = 4f; p.strokeCap = Paint.Cap.ROUND; p.color = 0xFF000000.toInt(); p.shader = rimSh
         for (i in 0 until 5) { c.drawLine(0f, -20f, 0f, 20f, p); c.rotate(36f) }
         p.shader = null
         p.style = Paint.Style.FILL; p.color = 0xFF14171C.toInt(); c.drawCircle(0f, 0f, 6f, p)
@@ -308,7 +308,7 @@ class HeroView(ctx: Context) : View(ctx) {
             if (Skin.glass) {
                 p.strokeWidth = 12f * s; p.color = withAlpha(col, 0.16f); c.drawLine(bx0, by, fx, by, p)
                 p.strokeWidth = 4f * s
-                p.shader = LinearGradient(bx0, 0f, bx1, 0f, col, if (warn) col else Skin.accent2, Shader.TileMode.CLAMP)
+                p.color = 0xFF000000.toInt(); p.shader = LinearGradient(bx0, 0f, bx1, 0f, col, if (warn) col else Skin.accent2, Shader.TileMode.CLAMP)
                 c.drawLine(bx0, by, fx, by, p)
                 p.shader = null
             } else {
@@ -371,6 +371,15 @@ class DialView(ctx: Context, private val maxV: Float, private val labels: Array<
     private val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
     private val rf = RectF()
     private val m = Matrix()
+    /** Height kept free below the dial (for its footer) when measuring a square. */
+    var reserve = 0
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val w = MeasureSpec.getSize(widthMeasureSpec)
+        val h = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.UNSPECIFIED) w
+            else min(w, MeasureSpec.getSize(heightMeasureSpec) - reserve)
+        setMeasuredDimension(w, max(0, h))
+    }
 
     fun set(v: Float?, big: String, unit: String, warn: Boolean = false) {
         val t = (v ?: 0f).coerceIn(0f, maxV)
@@ -407,9 +416,9 @@ class DialView(ctx: Context, private val maxV: Float, private val labels: Array<
             p.style = Paint.Style.STROKE; p.strokeWidth = 5f * s
             val metal = SweepGradient(cx, cy, intArrayOf(0xFF9AA1AC.toInt(), 0xFF2A2E35.toInt(), 0xFF7C838E.toInt(), 0xFF2A2E35.toInt(), 0xFF9AA1AC.toInt()), null)
             m.setRotate(-45f, cx, cy); metal.setLocalMatrix(m)
-            p.shader = metal; c.drawCircle(cx, cy, 162f * s, p)
+            p.color = 0xFF000000.toInt(); p.shader = metal; c.drawCircle(cx, cy, 162f * s, p)
             p.style = Paint.Style.FILL
-            p.shader = RadialGradient(cx, cy - 34f * s, 200f * s,
+            p.color = 0xFF000000.toInt(); p.shader = RadialGradient(cx, cy - 34f * s, 200f * s,
                 if (C.night) intArrayOf(0xFF1A1D22.toInt(), 0xFF07080A.toInt()) else intArrayOf(0xFFFFFFFF.toInt(), 0xFFD9DCE1.toInt()), null, Shader.TileMode.CLAMP)
             c.drawCircle(cx, cy, 158f * s, p)
             p.shader = null
@@ -440,7 +449,7 @@ class DialView(ctx: Context, private val maxV: Float, private val labels: Array<
                 p.strokeWidth = 22f * s; p.color = withAlpha(col, 0.14f); arc(c, cx, cy, 124f * s, 0f, frac)
                 val g = SweepGradient(cx, cy, intArrayOf(0xFFFF7A45.toInt(), col, col), floatArrayOf(0f, 0.75f, 1f))
                 m.setRotate(135f, cx, cy); g.setLocalMatrix(m)
-                p.shader = g; p.strokeWidth = 10f * s; arc(c, cx, cy, 124f * s, 0f, frac)
+                p.color = 0xFF000000.toInt(); p.shader = g; p.strokeWidth = 10f * s; arc(c, cx, cy, 124f * s, 0f, frac)
                 p.shader = null
             }
             // labels
@@ -460,7 +469,7 @@ class DialView(ctx: Context, private val maxV: Float, private val labels: Array<
                 p.strokeWidth = sw * s; p.color = withAlpha(col, al); c.drawLine(bx, by, ex, ey, p)
             }
             p.style = Paint.Style.FILL; p.color = 0xFF2A2E35.toInt(); c.drawCircle(cx, cy, 15f * s, p)
-            p.style = Paint.Style.STROKE; p.strokeWidth = 3f * s; p.shader = metal; c.drawCircle(cx, cy, 15f * s, p)
+            p.style = Paint.Style.STROKE; p.strokeWidth = 3f * s; p.color = 0xFF000000.toInt(); p.shader = metal; c.drawCircle(cx, cy, 15f * s, p)
             p.shader = null
             // readout
             tp.typeface = F.numeric; tp.textSize = 54f * s
@@ -490,7 +499,7 @@ class DialView(ctx: Context, private val maxV: Float, private val labels: Array<
                     p.strokeWidth = 20f * s; p.color = withAlpha(col, 0.14f); arc(c, cx, cy, r, 0f, frac)
                     val g = SweepGradient(cx, cy, intArrayOf(col, if (warn) col else Skin.accent2, if (warn) col else Skin.accent2), floatArrayOf(0f, 0.75f, 1f))
                     m.setRotate(135f, cx, cy); g.setLocalMatrix(m)
-                    p.shader = g
+                    p.color = 0xFF000000.toInt(); p.shader = g
                 } else p.color = col
                 p.strokeWidth = 8f * s; arc(c, cx, cy, r, 0f, frac)
                 p.shader = null
@@ -543,9 +552,11 @@ class RpmCard(private val a: MainActivity) : Card {
 
     init {
         if (!Skin.sport) { view.background = cardBg(); view.pad(14f) }
+        view.gravity = Gravity.CENTER
         dial.contentDescription = "Engine RPM"
-        view.addView(dial, lp(MATCH, 0, 1f))
-        view.addView(foot.view, lp(MATCH, WRAP).apply { bottomMargin = S.i(6) })
+        dial.reserve = S.i(44)
+        view.addView(dial, lp(MATCH, WRAP))
+        view.addView(foot.view, lp(MATCH, WRAP))
         view.setOnClickListener { a.show(MainActivity.Page.TELEMETRY) }
     }
 
@@ -567,9 +578,11 @@ class SpeedDialCard(private val a: MainActivity) : Card {
 
     init {
         if (!Skin.sport) { view.background = cardBg(); view.pad(14f) }
+        view.gravity = Gravity.CENTER
         dial.contentDescription = "Speed"
-        view.addView(dial, lp(MATCH, 0, 1f))
-        view.addView(foot.view, lp(MATCH, WRAP).apply { bottomMargin = S.i(6) })
+        dial.reserve = S.i(44)
+        view.addView(dial, lp(MATCH, WRAP))
+        view.addView(foot.view, lp(MATCH, WRAP))
     }
 
     override fun update() {

@@ -45,7 +45,7 @@ class MediaCard(private val a: MainActivity, private val big: Boolean, private v
     init {
         view.background = bg
         view.pad(if (big) 20f else if (Skin.glass) 20f else 16f)
-        val artSize = if (big) 112f else if (roomy) 104f else 64f
+        val artSize = if (big) 112f else if (roomy) 140f else 64f
         val head = a.hbox(if (big) 16f else if (roomy) 18f else 14f)
         head.addView(art, lp(S.i(artSize), S.i(artSize)))
         val col = a.vbox(if (big || roomy) 4f else 2f)
@@ -57,6 +57,7 @@ class MediaCard(private val a: MainActivity, private val big: Boolean, private v
         head.addView(col, lp(0, WRAP, 1f))
         view.addView(head, lp(MATCH, WRAP))
 
+        if (roomy && !big) view.addView(a.spacer(), lp(MATCH, 0, 1f))
         val prog = a.vbox(6f)
         bar.knob = Skin.id != Skin.CLASSIC
         prog.addView(bar, lp(MATCH, S.i(if (bar.knob) 12 else 4)))
@@ -66,7 +67,7 @@ class MediaCard(private val a: MainActivity, private val big: Boolean, private v
         prog.addView(timeRow, lp(MATCH, WRAP))
         view.addView(prog, lp(MATCH, WRAP))
 
-        if (!big) view.addView(a.spacer(), lp(MATCH, 0, 1f))
+        if (!big && !roomy) view.addView(a.spacer(), lp(MATCH, 0, 1f))
         val ctl = a.hbox()
         val b = if (big) 52 else 48
         val pb = if (big) 64 else if (Skin.glass) 68 else 56
