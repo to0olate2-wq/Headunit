@@ -51,7 +51,7 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk DriveLauncher.apk
           git log -1 --format=%B | grep -vE '^(Co-Authored-By|Claude-Session):' > notes.txt
           gh release create "build-${{ github.run_number }}" DriveLauncher.apk \
-            --title "Drive Launcher 0.4.${{ github.run_number }}" \
+            --title "Drive Launcher 0.5.${{ github.run_number }}" \
             --notes-file notes.txt --target "${{ github.sha }}" --latest
 
       - name: Save logs and screen pictures to the ci-results branch

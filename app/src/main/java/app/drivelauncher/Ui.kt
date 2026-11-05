@@ -267,7 +267,8 @@ fun Context.caption(text: String, size: Float = 13f): TextView =
 
 fun Context.spacer(): View = View(this)
 
-fun TextView.tnum(): TextView = apply { fontFeatureSettings = "tnum" }
+/** Same-width digits, and lining (not old-style) figures for the Luxury serif. */
+fun TextView.tnum(): TextView = apply { fontFeatureSettings = "tnum, lnum" }
 
 /** Only touch the TextView when the value really changed (avoids relayouts every tick). */
 fun TextView.put(s: CharSequence) {

@@ -93,7 +93,7 @@ class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : V
                     c.drawRoundRect(rf, rad, rad, bgp)
                 }
                 bgp.shader = null; bgp.style = Paint.Style.FILL
-                iconColor = if (ring) 0xFFFFFFFF.toInt() else Skin.blend(t[0], 0xFFFFFFFF.toInt(), 0.3f)
+                iconColor = if (ring) 0xFFFFFFFF.toInt() else if (C.night) Skin.blend(t[0], 0xFFFFFFFF.toInt(), 0.3f) else t[1]
             }
             jewel -> {
                 val r = min(w, h) / 2f - S.p(4f)
@@ -238,7 +238,7 @@ class SpeedGauge(ctx: Context) : View(ctx) {
     var dim = false
     var warn = false
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
+    private val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER; fontFeatureSettings = "lnum" }
 
     fun set(frac: Float, text: String, unit: String, dim: Boolean, warn: Boolean = false) {
         if (frac != this.frac || text != this.text || unit != this.unit || dim != this.dim || warn != this.warn) {
@@ -275,7 +275,7 @@ class RingGauge(ctx: Context) : View(ctx) {
     var ring = true
     var warn = false
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
+    private val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER; fontFeatureSettings = "lnum" }
 
     fun set(frac: Float, value: String, unit: String, ring: Boolean, warn: Boolean) {
         if (frac != this.frac || value != this.value || unit != this.unit || ring != this.ring || warn != this.warn) {

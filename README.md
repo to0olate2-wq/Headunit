@@ -7,6 +7,8 @@ Dashboard with speed, trip, next turn, engine gauges, map and now-playing music,
   a lit-up car picture whose wheels turn while you drive, colourful app tiles, music card tinted by the album art.
 - **Carbon Sport:** carbon-fibre background, real-looking RPM and speed dials with needles and a red line,
   angled metal panels, red accent.
+- **Neon Night:** glowing two-colour outlines, a moving neon grid floor, futuristic numbers.
+- **Luxury:** warm black and gold, watch-style dials, elegant serif numbers, gold ring buttons.
 - **Classic:** the original flat dark look.
 
 Settings → Look → **Theme**. Each theme keeps its own accent colour and home layout.
@@ -32,6 +34,11 @@ Settings → Look → **Theme**. Each theme keeps its own accent colour and home
   gauges, readouts, map, music, clock & weather, compass, car care, your logo, any Android widget), change the page
   layout or add pages.
 - **Motion effects:** pages slide in, the background glows slowly, dials move smoothly (can be turned off).
+- **Your car:** a 3D-rendered saloon in your paint colour (wheels turn while driving), or your own car photo.
+- **Road speed limit sign** from OpenStreetMap (Google Maps and Waze don't share theirs), with an optional beep.
+- **Quick destinations:** Home, Work, saved places, nearest fuel / coffee / food / parking (opens Google Maps or Waze).
+- **Speed-based volume**, **fuel range** (OBD2 fuel level or the fuel log), **drive score** with tips for each trip.
+- **App drawer:** search, sort (A–Z, most used, newest), hide apps, folders; Android **icon packs** (ADW/Nova format).
 - **Day/night look** following sunrise and sunset, with optional automatic brightness; plain, starry or photo backgrounds.
 - **Car page:** automatic trip history with routes, fuel log and costs, service reminders, check-engine codes
   (read/clear, with OBD2), and where you last parked.
@@ -48,4 +55,6 @@ Settings → Look → **Theme**. Each theme keeps its own accent colour and home
 5. Optional: pair an OBD2 adapter in Bluetooth settings (PIN usually 1234 or 0000).
 
 Map tiles: Esri World Dark Gray (Esri, HERE, Garmin, © OpenStreetMap contributors), falling back to OpenStreetMap.
-Weather: Open-Meteo. Fonts: Barlow, Outfit, Rajdhani (SIL OFL, see `app/src/main/assets/fonts/OFL.txt`).
+Weather: Open-Meteo. Speed limits: © OpenStreetMap contributors (Overpass API).
+Fonts: Barlow, Outfit, Rajdhani, Orbitron, Cormorant Garamond (SIL OFL, see `app/src/main/assets/fonts/OFL.txt`).
+The car picture is an original model made with `tools/car3d` (three.js).

@@ -17,7 +17,7 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
 - Push `main` → CI builds `assembleRelease`, runs `testReleaseUnitTest` (OBD parser tests + `ScreensTest`, which
   starts the launcher in Robolectric at 1280×720, 1024×600 and 768×1024 and saves PNGs). Release `build-<run>`
   is published only if both pass. Results: shallow-clone branch `ci-results` (status.txt, logs, screens/, test-results/).
-- `versionCode = 1000 + run` (earlier test builds from the Project repo went up to ~170). `versionName = 0.4.<run>`. Same signing key
+- `versionCode = 1000 + run` (earlier test builds from the Project repo went up to ~170). `versionName = 0.5.<run>`. Same signing key
   (`signing/`) for every build so updates install over the old one.
 
 ## Layout (`app/src/main/java/app/drivelauncher/`)
@@ -31,12 +31,23 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
 - `DriveService` (foreground, type location): GPS, `Trips` recording, `SpeedAlert`, `Overlay` (floating speedometer),
   `AutoStart` (power-on / wake from sleep). `Car.kt`: Odometer, Trips, Parking, FuelLog, ServiceLog, DtcInfo.
 - `Theme.kt`: `Sun` (sunrise/sunset), `ThemeMgr` (auto day/night, brightness). Palette `C` is switchable (`C.apply`).
-- `Skin.kt` (0.4): themes `glass` (Aurora Glass, default), `sport` (Carbon Sport), `classic`. `Prefs.skin`; accent and
+- `Skin.kt` (0.4/0.5): themes `glass` (Aurora Glass, default), `sport` (Carbon Sport), `neon` (Neon Night), `luxury`, `classic`.
+  Traits: `glowy` (glass, neon: gradients/glows), `analog` (sport, luxury: `DialView` instrument branch, `SpeedDialCard`),
+  `floatingHero`. Shapes `GlassBg` / `ChamferBg` / `NeonBg` / `LuxBg`, `Skin.panel()`; dock styles: gradient tiles (glass),
+  outline tiles (neon), `jewel` gold rings (luxury), chamfer (sport). Luxury digits need `lnum` (Cormorant has old-style
+  figures): `tnum()` and the canvas paints set it. Orbitron is shipped **unmodified** (Reserved Font Name) as a variable
+  font; weights come from `Typeface.Builder.setFontVariationSettings`. `Prefs.skin`; accent and
   home pages are stored **per theme** (`accent_<skin>`, `pages_<skin>`; classic also reads the old keys). `C.apply` and
   `F.apply` follow the skin (fonts: Outfit for glass, Rajdhani numbers for sport, Barlow otherwise; `F.display` = huge
   numbers). Shapes: `cardBg()` → `GlassBg` / `ChamferBg` / rounded; `Skin.tile()`, `Skin.gradient()`, `C.FLOAT` for
   chips over maps. `Motion.on` (pref `motion`; tests set `Motion.allowed = false`): page slide-in, aurora drift,
   dial needle easing, hero wheel spin.
+- `CarArt` (in `PremiumCards.kt`): 3D-rendered original saloon, `assets/car/car_<colour>.webp` + `wheel.webp` (rotated
+  at run time), made by `tools/car3d` (three.js + headless Chrome); frame/wheel metres must match `car.js`. Owner photo:
+  `files/car.png` (`Prefs.carPhoto`), cut-outs are trimmed, normal photos get faded edges. Never ship real-brand cars.
+- `Roads.kt`: `RoadLimit` (Overpass ways in a ~2 km box, matched locally per fix; numeric `maxspeed` only), `SpeedSign`,
+  `SpeedSignView`, `SpeedVolume`. `Places.kt`: quick destinations (Maps/Waze intents). `Car.kt`: `DriveScore`, `FuelRange`.
+  `AppsPage.kt`: drawer (search, sort, hidden, folders in Prefs `hiddenApps`/`folders`/`appUses`), `IconPack` in `Apps.kt`.
 - `PremiumCards.kt`: `HeroView`/`HeroCard` (clock, big speed, 3 stats, `CarArt` side-view car), `DialView`
   (sport: analog instrument; others: slim arc), `RpmCard`, `SpeedDialCard` (speed card in sport), `NavCard`, `StatsCard`.
   Layouts `aurora` [hero, nav, media] and `cockpit` [rpm, nav, media, stats, speed]; `HomePages.standard()` per skin.

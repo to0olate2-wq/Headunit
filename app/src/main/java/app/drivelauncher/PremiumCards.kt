@@ -274,8 +274,8 @@ object CarArt {
         shadow(c, cx, ground, fw * s * 0.47f, 0.11f * s, if (C.night) 0.85f else 0.45f)
         for (x in WHEELS) shadow(c, px(x), ground, 0.42f * s, 0.05f * s, if (C.night) 0.9f else 0.55f)
         // lamps glow behind the body edges
-        glow(c, px(HEAD[0]), py(HEAD[1]), 0.34f * s, C.accent, if (C.night) 0.40f else 0.22f)
-        glow(c, px(TAIL[0]), py(TAIL[1]), 0.30f * s, 0xFFFF3B4A.toInt(), if (C.night) 0.38f else 0.18f)
+        glow(c, px(HEAD[0]), py(HEAD[1]), 0.22f * s, C.accent, if (C.night) 0.32f else 0.18f)
+        glow(c, px(TAIL[0]), py(TAIL[1]), 0.18f * s, 0xFFFF3B4A.toInt(), if (C.night) 0.30f else 0.14f)
         rf.set(left, top, left + fw * s, top + fh * s)
         c.drawBitmap(b, null, rf, bp)
         val r = WHEEL_HALF * s
@@ -291,7 +291,7 @@ object CarArt {
 
     private fun floor(c: Canvas, cx: Float, ground: Float, width: Float, s: Float, dashPhase: Float, moving: Boolean) {
         p.style = Paint.Style.FILL; p.xfermode = null
-        c.save(); c.scale(1f, 0.16f, cx, ground)
+        c.save(); c.scale(1f, 0.11f, cx, ground)
         p.color = 0xFF000000.toInt()
         p.shader = RadialGradient(cx, ground, width * 0.56f, withAlpha(C.accent, if (C.night) 0.42f else 0.28f), withAlpha(C.accent, 0f), Shader.TileMode.CLAMP)
         c.drawCircle(cx, ground, width * 0.56f, p)
@@ -369,7 +369,7 @@ class HeroView(ctx: Context) : View(ctx) {
     private var phase = 0f
     private var last = 0L
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val tp = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { fontFeatureSettings = "lnum" }
     private val rf = RectF()
 
     fun update() {
@@ -520,7 +520,7 @@ class HeroView(ctx: Context) : View(ctx) {
             }
             last = now
         } else last = 0L
-        CarArt.draw(c, w / 2f, h - 2f * s, w * 0.96f, h - 2f * s - carTop, wheel, phase, moving)
+        CarArt.draw(c, w / 2f, h - 26f * s, w * 0.9f, h - 26f * s - carTop, wheel, phase, moving)
         if (moving && isShown) postInvalidateDelayed(40)
     }
 }
@@ -554,7 +554,7 @@ class DialView(ctx: Context, private val maxV: Float, private val labels: Array<
     private var dim = true
     private var last = 0L
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
+    private val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER; fontFeatureSettings = "lnum" }
     private val rf = RectF()
     private val m = Matrix()
     /** Height kept free below the dial (for its footer) when measuring a square. */

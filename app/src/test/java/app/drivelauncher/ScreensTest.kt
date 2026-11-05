@@ -143,6 +143,7 @@ class ScreensTest {
             }
             act.show(MainActivity.Page.SOURCES); save(act, "$name-glass-settings")
             findScroll(act.window.decorView)?.let { sv ->
+                sv.scrollTo(0, 620); save(act, "$name-glass-settings-look")
                 sv.scrollTo(0, 1100); save(act, "$name-glass-settings2")
                 sv.scrollTo(0, 100_000); save(act, "$name-glass-settings3")
             }
