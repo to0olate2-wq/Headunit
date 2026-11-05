@@ -349,7 +349,7 @@ class CarPage(private val a: MainActivity, portrait: Boolean) {
         }, lp(MATCH, WRAP))
         val map = TileMapView(a)
         map.mode = 2
-        map.zoom = 17
+        map.zoom = 16
         map.fixed = doubleArrayOf(Parking.lat, Parking.lon)
         val box = FrameLayout(a).apply { background = roundBg(C.MAP_BG, 16f, C.BORDER); clipToOutline = true; addView(map, flp(MATCH, MATCH)) }
         b.addView(box, lp(MATCH, 0, 1f))

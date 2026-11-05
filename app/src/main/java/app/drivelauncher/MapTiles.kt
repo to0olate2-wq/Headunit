@@ -25,6 +25,7 @@ import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.tan
 
 /**
@@ -120,9 +121,10 @@ class TileMapView(ctx: Context) : View(ctx) {
             for (tx in tx0..tx1) {
                 val txw = ((tx % n) + n) % n
                 val bmp = tile(src, z, txw, ty)
-                val left = (tx * ts - x0).toFloat()
-                val top = (ty * ts - y0).toFloat()
-                rf.set(left, top, left + ts, top + ts)
+                val left = floor(tx * ts.toDouble() - x0).toFloat()
+                val top = floor(ty * ts.toDouble() - y0).toFloat()
+                // whole pixels plus 1 px overlap so no hairline seams show between tiles
+                rf.set(left, top, left + ts.roundToInt() + 1f, top + ts.roundToInt() + 1f)
                 if (bmp != null) { c.drawBitmap(bmp, null, rf, tilePaint); drawn++ }
             }
         }

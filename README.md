@@ -18,6 +18,17 @@ Dark dashboard with speed, trip, road view with next turn, engine gauges, map an
   Without an adapter the gauges switch to GPS info (heading, altitude, satellites, date).
 - **Diagnostics:** the settings page lists exactly what the unit shares (sessions, notifications, OBD replies) and can save a log to Downloads.
 
+## Also included
+
+- **Editable home screen:** tap and hold any card to swap it (speed, trip, road & next turn, gauges, map, music,
+  clock & weather, compass, car care, your logo, any Android widget), change the page layout or add pages.
+- **Day/night look** following sunrise and sunset, with optional automatic brightness; plain, starry or photo backgrounds.
+- **Car page:** automatic trip history with routes, fuel log and costs, service reminders, check-engine codes
+  (read/clear, with OBD2), and where you last parked.
+- **While other apps are open:** speed warning chime, floating speedometer, trips keep recording.
+- **Auto-start:** opens ZLink and resumes music when the car turns on; parked screen saver; split screen with Maps
+  (if the unit allows it); choose your own dock app buttons.
+
 ## First-time setup on the unit
 
 1. Install the APK (allow "unknown sources" if asked).

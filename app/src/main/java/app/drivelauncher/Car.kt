@@ -25,7 +25,14 @@ object Odometer {
         if (SystemClock.elapsedRealtime() - lastSave > 30_000) save()
     }
 
-    fun set(km: Double) { meters = km * 1000.0; save() }
+    /** Set to the car's real odometer. Service reminders move with it so they don't jump to "overdue". */
+    fun set(km: Double) {
+        load()
+        val delta = km - meters / 1000.0
+        meters = km * 1000.0
+        save()
+        if (kotlin.math.abs(delta) > 0.5) ServiceLog.shift(delta)
+    }
 
     fun save() {
         if (meters < 0) return
@@ -97,7 +104,8 @@ object Trips {
         private set
 
     fun init(ctx: Context) {
-        if (dir == null) dir = File(ctx.filesDir, "trips").apply { mkdirs() }
+        val d = File(ctx.filesDir, "trips")
+        if (dir?.path != d.path) { d.mkdirs(); dir = d; cache = null }
     }
 
     /** Called for every GPS fix. */
@@ -319,7 +327,7 @@ object FuelLog {
     var version = 0
         private set
 
-    fun init(ctx: Context) { if (dir == null) dir = ctx.filesDir }
+    fun init(ctx: Context) { if (dir?.path != ctx.filesDir.path) { dir = ctx.filesDir; cache = null } }
 
     fun list(): List<FuelEntry> {
         cache?.let { return it }
@@ -380,7 +388,13 @@ object ServiceLog {
     var version = 0
         private set
 
-    fun init(ctx: Context) { if (dir == null) dir = ctx.filesDir }
+    fun init(ctx: Context) { if (dir?.path != ctx.filesDir.path) { dir = ctx.filesDir; cache = null } }
+
+    /** The odometer was corrected by [delta] km: keep every reminder the same distance away. */
+    fun shift(delta: Double) {
+        list().forEach { it.lastKm += delta }
+        save()
+    }
 
     fun list(): List<ServiceItem> {
         cache?.let { return it }
