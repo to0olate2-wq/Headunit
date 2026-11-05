@@ -26,6 +26,7 @@ import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.DecelerateInterpolator
 import android.view.ViewGroup
 import android.widget.CheckBox
 import android.widget.EditText
@@ -105,6 +106,7 @@ open class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Prefs.init(this)
+        Skin.set(Prefs.skin)
         F.load(this)
         C.accent = Prefs.accent
         C.apply(ThemeMgr.wantNight(), Prefs.background != "plain")
@@ -166,7 +168,7 @@ open class MainActivity : Activity() {
         col.addView(host, lp(MATCH, 0, 1f))
         if (!dashMode) {
             val dk = Dock(this, portrait)
-            col.addView(dk.view, lp(MATCH, S.i(64)))
+            col.addView(dk.view, lp(MATCH, S.i(Skin.dockHeight)))
             dock = dk
         }
         root.addView(col, flp(MATCH, MATCH))
@@ -177,6 +179,8 @@ open class MainActivity : Activity() {
 
     /** Rebuild every screen (after a settings change). */
     fun rebuild() {
+        Skin.set(Prefs.skin)
+        F.apply()
         C.accent = Prefs.accent
         C.apply(ThemeMgr.wantNight(), Prefs.background != "plain")
         if (builtW > 0) build(builtW, builtH, true)
@@ -192,6 +196,18 @@ open class MainActivity : Activity() {
 
     fun applyTheme() = checkTheme(true)
 
+    /** The view on screen for a page (to animate the change). */
+    private fun pageView(p: Page, idx: Int): View? = when (p) {
+        Page.HOME -> homes.getOrNull(idx)?.view
+        Page.TELEMETRY -> tele?.view
+        Page.CAR -> car?.view
+        Page.SOURCES -> sources?.view
+        Page.APPS -> apps?.view
+    }
+
+    private var shownView: View? = null
+    private var slideDir = 1
+
     fun show(p: Page) {
         page = p
         homes.forEachIndexed { i, hp -> hp.view.showIf(p == Page.HOME && i == homeIdx) }
@@ -200,11 +216,23 @@ open class MainActivity : Activity() {
         sources?.view?.showIf(p == Page.SOURCES)
         apps?.view?.showIf(p == Page.APPS)
         if (p == Page.APPS) apps?.refresh()
+        val v = pageView(p, homeIdx)
+        if (v != null && shownView != null && v !== shownView && v.parent === shownView?.parent && Motion.on) {
+            // slide the new page in a little and fade it up
+            v.animate().cancel()
+            v.alpha = 0f
+            v.translationX = S.p(56f) * slideDir
+            v.animate().alpha(1f).translationX(0f).setDuration(280L).setInterpolator(DecelerateInterpolator(2f)).start()
+        }
+        shownView = v
+        slideDir = 1
         update()
     }
 
     fun showHome(i: Int) {
-        homeIdx = i.coerceIn(0, max(0, homes.size - 1))
+        val n = i.coerceIn(0, max(0, homes.size - 1))
+        if (page == Page.HOME) slideDir = if (n < homeIdx) -1 else 1
+        homeIdx = n
         show(Page.HOME)
     }
 
@@ -219,7 +247,7 @@ open class MainActivity : Activity() {
                 dir > 0 -> show(Page.TELEMETRY)
                 dir < 0 && homeIdx > 0 -> showHome(homeIdx - 1)
             }
-            Page.TELEMETRY -> if (dir < 0) showHome(homes.size - 1)
+            Page.TELEMETRY -> if (dir < 0) { slideDir = -1; showHome(homes.size - 1) }
             else -> {}
         }
     }
@@ -233,7 +261,7 @@ open class MainActivity : Activity() {
                 Page.SOURCES -> sources?.update()
                 Page.APPS -> {}
             }
-            dock?.update(page, Fmt.time())
+            dock?.update(page, if (page == Page.HOME && homes.getOrNull(homeIdx)?.hasClock == true) "" else Fmt.time())
         } catch (e: Exception) {
             Diag.log("ui update: ${e.javaClass.simpleName} ${e.message}")
         }
@@ -250,7 +278,7 @@ open class MainActivity : Activity() {
         val v = vbox(6f)
         v.gravity = Gravity.CENTER
         v.setBackgroundColor(if (C.night) 0xFF000000.toInt() else C.BG)
-        val t = label(180f, C.TEXT, F.numeric).tnum()
+        val t = label(180f, C.TEXT, F.display).tnum()
         val d = label(28f, C.TEXT2, F.medium)
         val i = label(20f, C.MUTED, F.regular, lines = 2).apply { gravity = Gravity.CENTER }
         v.addView(t, lp(WRAP, WRAP)); v.addView(d, lp(WRAP, WRAP)); v.addView(i, lp(WRAP, WRAP).apply { topMargin = S.i(16) })

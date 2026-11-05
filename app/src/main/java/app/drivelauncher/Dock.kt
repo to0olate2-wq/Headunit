@@ -3,6 +3,7 @@ package app.drivelauncher
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.drawable.GradientDrawable
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -10,22 +11,45 @@ import android.widget.TextView
 /** Bottom bar: home, volume, pages, status, your app buttons, settings, clock. */
 class Dock(private val a: MainActivity, portrait: Boolean) {
     val view: LinearLayout = a.hbox(4f)
-    private val home = btn(Ic.HOME, "Home") { a.showHome(a.homeIdx) }
-    private val tele = btn(Ic.GAUGE, "Engine data") { a.show(MainActivity.Page.TELEMETRY) }
-    private val car = btn(Ic.CAR, "Car care") { a.show(MainActivity.Page.CAR) }
-    private val apps = btn(Ic.GRID, "All apps") { a.show(MainActivity.Page.APPS) }
-    private val settings = btn(Ic.SLIDERS, "Settings and data sources") { a.show(MainActivity.Page.SOURCES) }
+    private val home = btn(Ic.HOME, "Home", HOME) { a.showHome(a.homeIdx) }
+    private val tele = btn(Ic.GAUGE, "Engine data", ENGINE) { a.show(MainActivity.Page.TELEMETRY) }
+    private val car = btn(Ic.CAR, "Car care", CAR) { a.show(MainActivity.Page.CAR) }
+    private val apps = btn(Ic.GRID, "All apps", GREY) { a.show(MainActivity.Page.APPS) }
+    private val settings = btn(Ic.SLIDERS, "Settings and data sources", STEEL) { a.show(MainActivity.Page.SOURCES) }
     private val vol = Bar(a)
     private val gpsDot: TextView = status("GPS")
     private val obdDot: TextView = status("OBD")
     private val extra: TextView = a.label(13f, C.MUTED, F.regular).tnum()
     private val dots = Dots(a)
-    private val clock: TextView = a.label(18f, C.TEXT, F.semibold).tnum()
+    private val clock: TextView = a.label(if (Skin.sport) 24f else if (Skin.glass) 20f else 18f, C.TEXT,
+        if (Skin.sport) F.numeric else if (Skin.glass) F.medium else F.semibold).tnum()
     private var lastKey = ""
 
-    private fun btn(ic: Ic, desc: String, click: () -> Unit) = IconBtn(a, ic, 24f).apply {
+    companion object {
+        // Aurora Glass app tile colours (top-left, bottom-right)
+        val HOME = intArrayOf(0, 0) // accent gradient, filled in at build time
+        val MAPS = intArrayOf(0xFF3DD6C4.toInt(), 0xFF1E7FD8.toInt())
+        val MUSIC = intArrayOf(0xFFFF6FA8.toInt(), 0xFF9B3FE0.toInt())
+        val LINK = intArrayOf(0xFF5AC8FA.toInt(), 0xFF2C6BED.toInt())
+        val SPLIT = intArrayOf(0xFF8C7CFF.toInt(), 0xFF4B3FD6.toInt())
+        val ENGINE = intArrayOf(0xFFFF8A5C.toInt(), 0xFFE0415A.toInt())
+        val CAR = intArrayOf(0xFFFFC15E.toInt(), 0xFFF2672E.toInt())
+        val GREY = intArrayOf(0xFF8E9AAF.toInt(), 0xFF485264.toInt())
+        val STEEL = intArrayOf(0xFFA7AEBA.toInt(), 0xFF535A66.toInt())
+    }
+
+    /** Dock button styled for the theme: colourful tile (Aurora Glass), angled panel (Carbon Sport) or plain icon. */
+    private fun btn(ic: Ic, desc: String, colors: IntArray? = null, click: () -> Unit) = IconBtn(a, ic, if (Skin.glass && colors != null) 26f else 24f).apply {
         contentDescription = desc
         setOnClickListener { click() }
+        when {
+            Skin.glass && colors != null -> {
+                tile = if (colors === HOME) intArrayOf(C.accent, Skin.accent2) else colors
+                fg = C.ON_GRAD; sw = 2f
+            }
+            Skin.glass -> fg = C.TEXT3
+            Skin.sport -> chamfer = true
+        }
     }
 
     private fun status(name: String): TextView = a.label(13f, C.TEXT2, F.semibold).apply {
@@ -43,9 +67,13 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
     }
 
     init {
-        view.background = roundBg(C.CARD, 18f, C.BORDER)
-        view.pad(8f, 0f)
-        val size = S.i(48)
+        when {
+            Skin.glass -> { view.background = GlassBg(C.CARD, 28f); view.pad(12f, 0f) }
+            Skin.sport -> view.pad(0f)
+            else -> { view.background = roundBg(C.CARD, 18f, C.BORDER); view.pad(8f, 0f) }
+        }
+        if (Skin.id != Skin.CLASSIC) view.dividerDrawable = GradientDrawable().apply { setSize(S.i(8), S.i(8)) }
+        val size = S.i(if (Skin.id == Skin.CLASSIC) 48 else 56)
         fun add(v: View) = view.addView(v, lp(size, size))
         add(home)
         if (!portrait) view.addView(a.divider())
@@ -84,12 +112,13 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
                 if (!Apps.canLaunch(a, v)) return null
                 btn(Ic.GRID, Apps.label(a, v)) { Apps.launch(a, v) }.apply {
                     drawable = try { a.packageManager.getApplicationIcon(v) } catch (_: Exception) { null }
+                    bgColor = 0
                 }
             }
-            slot == 0 -> { val z = Apps.findZlink(a) ?: return null; btn(Ic.LINK, "ZLink") { Apps.launch(a, z) } }
-            slot == 1 -> btn(Ic.PIN, "Maps") { a.openNav() }
-            slot == 2 -> btn(Ic.MUSIC, "Music app") { MediaHub.openSourceApp(a) }
-            else -> btn(Ic.SPLIT, "Split screen with Maps") { a.splitScreen() }
+            slot == 0 -> { val z = Apps.findZlink(a) ?: return null; btn(Ic.LINK, "ZLink", LINK) { Apps.launch(a, z) } }
+            slot == 1 -> btn(Ic.PIN, "Maps", MAPS) { a.openNav() }
+            slot == 2 -> btn(Ic.MUSIC, "Music app", MUSIC) { MediaHub.openSourceApp(a) }
+            else -> btn(Ic.SPLIT, "Split screen with Maps", SPLIT) { a.splitScreen() }
         }
         b.setOnLongClickListener {
             a.chooseApp("Dock button ${slot + 1}", listOf("Default" to "", "Empty" to "none")) { pkg ->
@@ -107,11 +136,17 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
             lastKey = key
             for ((b, p) in listOf(home to MainActivity.Page.HOME, tele to MainActivity.Page.TELEMETRY, car to MainActivity.Page.CAR,
                 apps to MainActivity.Page.APPS, settings to MainActivity.Page.SOURCES)) {
-                b.set(fg = if (p == page) C.accent else C.TEXT2, bg = if (p == page) C.CARD2 else 0)
+                when {
+                    Skin.glass -> b.ring = p == page
+                    Skin.sport -> { b.underline = if (p == page) C.accent else 0; b.set(fg = if (p == page) C.accent else C.TEXT2) }
+                    else -> b.set(fg = if (p == page) C.accent else C.TEXT2, bg = if (p == page) C.CARD2 else 0)
+                }
             }
             dots.set(a.homeCount, if (page == MainActivity.Page.HOME) a.homeIdx else -1)
         }
-        car.set(icon = Ic.CAR, fg = if (page == MainActivity.Page.CAR) C.accent else if (ServiceLog.dueCount() > 0 || Obd.mil == true) C.AMBER_TEXT else C.TEXT2)
+        val due = ServiceLog.dueCount() > 0 || Obd.mil == true
+        car.badge = if (due && Skin.id != Skin.CLASSIC) C.WARN else 0
+        if (!Skin.glass) car.set(icon = Ic.CAR, fg = if (page == MainActivity.Page.CAR) C.accent else if (due) C.AMBER_TEXT else C.TEXT2)
         vol.frac = Vol.frac(a)
         dot(gpsDot, Gps.fresh)
         dot(obdDot, Obd.connected)

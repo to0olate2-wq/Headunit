@@ -72,7 +72,7 @@ class TileMapView(ctx: Context) : View(ctx) {
         val w = width.toFloat()
         val h = height.toFloat()
         path.reset(); rf.set(0f, 0f, w, h)
-        path.addRoundRect(rf, S.p(19f), S.p(19f), Path.Direction.CW)
+        path.addRoundRect(rf, S.p(Skin.radius - 1f), S.p(Skin.radius - 1f), Path.Direction.CW)
         c.clipPath(path)
         p.style = Paint.Style.FILL
         p.color = C.MAP_BG

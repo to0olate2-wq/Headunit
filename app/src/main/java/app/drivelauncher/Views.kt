@@ -5,6 +5,9 @@ import android.graphics.Bitmap
 import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.DashPathEffect
+import android.graphics.LinearGradient
+import android.graphics.RadialGradient
+import android.graphics.SweepGradient
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
@@ -27,8 +30,24 @@ class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : V
     var radius = 14f
     var circle = false
     var sw = 1.8f
+    /** Aurora Glass app tile: two gradient colours. */
+    var tile: IntArray? = null
+        set(v) { field = v; invalidate() }
+    /** Aurora Glass: white ring around the tile (the page you are on). */
+    var ring = false
+        set(v) { if (field != v) { field = v; invalidate() } }
+    /** Accent gradient button with a soft glow (Aurora Glass play button). */
+    var grad = false
+    /** Carbon Sport: angled panel; [underline] = colour of the bar under the active button. */
+    var chamfer = false
+    var underline = 0
+        set(v) { if (field != v) { field = v; invalidate() } }
+    /** Small warning dot in the corner (0 = none). */
+    var badge = 0
+        set(v) { if (field != v) { field = v; invalidate() } }
     private val bgp = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rf = RectF()
+    private val path = Path()
 
     init {
         isClickable = true
@@ -44,6 +63,8 @@ class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : V
 
     override fun drawableStateChanged() {
         super.drawableStateChanged()
+        val want = if (isPressed && isClickable) 0.92f else 1f
+        if (Motion.on && scaleX != want) animate().scaleX(want).scaleY(want).setDuration(if (want < 1f) 80L else 160L).start()
         invalidate()
     }
 
@@ -51,13 +72,74 @@ class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : V
         val w = width.toFloat()
         val h = height.toFloat()
         rf.set(0f, 0f, w, h)
-        if (bgColor != 0) {
-            bgp.color = bgColor
-            if (circle) c.drawOval(rf, bgp) else c.drawRoundRect(rf, S.p(radius), S.p(radius), bgp)
+        val t = tile
+        bgp.shader = null
+        bgp.style = Paint.Style.FILL
+        var iconColor = fg
+        when {
+            t != null -> {
+                val inset = S.p(4f)
+                rf.inset(inset, inset)
+                val rad = rf.width() * 0.29f
+                if (ring) {
+                    bgp.color = withAlpha(t[0], 0.35f)
+                    rf.inset(-S.p(4f), -S.p(4f)); c.drawRoundRect(rf, rad + S.p(4f), rad + S.p(4f), bgp); rf.inset(S.p(4f), S.p(4f))
+                }
+                bgp.shader = LinearGradient(rf.left, rf.top, rf.right, rf.bottom, t[0], t[1], Shader.TileMode.CLAMP)
+                c.drawRoundRect(rf, rad, rad, bgp)
+                bgp.shader = LinearGradient(0f, rf.top, 0f, rf.centerY(), 0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
+                c.drawRoundRect(rf, rad, rad, bgp)
+                bgp.shader = null
+                if (ring) {
+                    bgp.style = Paint.Style.STROKE; bgp.strokeWidth = S.p(2f); bgp.color = if (C.night) 0xE6FFFFFF.toInt() else 0xFF1B2A44.toInt()
+                    rf.inset(-S.p(1f), -S.p(1f)); c.drawRoundRect(rf, rad + S.p(1f), rad + S.p(1f), bgp)
+                    bgp.style = Paint.Style.FILL
+                }
+            }
+            grad -> {
+                val inset = S.p(6f)
+                val r = min(w, h) / 2f - inset
+                bgp.color = withAlpha(C.accent, 0.10f); c.drawCircle(w / 2, h / 2, r + S.p(6f), bgp)
+                bgp.color = withAlpha(C.accent, 0.18f); c.drawCircle(w / 2, h / 2, r + S.p(3f), bgp)
+                bgp.shader = LinearGradient(w / 2 - r, h / 2 - r, w / 2 + r, h / 2 + r, C.accent, Skin.accent2, Shader.TileMode.CLAMP)
+                c.drawCircle(w / 2, h / 2, r, bgp)
+                bgp.shader = LinearGradient(0f, h / 2 - r, 0f, h / 2, 0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
+                c.drawCircle(w / 2, h / 2, r, bgp)
+                bgp.shader = null
+            }
+            chamfer -> {
+                Skin.chamfer(path, 0f, 0f, w, h, S.p(10f))
+                bgp.color = if (bgColor != 0) bgColor else C.CARD2
+                c.drawPath(path, bgp)
+                if (bgColor == 0 || bgColor == C.CARD2) {
+                    bgp.shader = LinearGradient(0f, 0f, 0f, h, if (C.night) 0x14FFFFFF else 0x59FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
+                    c.drawPath(path, bgp); bgp.shader = null
+                }
+                if (underline != 0) {
+                    c.save(); c.clipPath(path)
+                    bgp.color = underline; c.drawRect(0f, h - S.p(3f), w, h, bgp)
+                    c.restore()
+                }
+                val s1 = max(1f, S.p(1f))
+                Skin.chamfer(path, s1 / 2, s1 / 2, w - s1 / 2, h - s1 / 2, S.p(10f))
+                bgp.style = Paint.Style.STROKE; bgp.strokeWidth = s1; bgp.color = C.BORDER2
+                c.drawPath(path, bgp)
+                bgp.style = Paint.Style.FILL
+                Skin.chamfer(path, 0f, 0f, w, h, S.p(10f))
+            }
+            bgColor != 0 -> {
+                bgp.color = bgColor
+                if (circle) c.drawOval(rf, bgp) else c.drawRoundRect(rf, S.p(radius), S.p(radius), bgp)
+            }
         }
         if (isPressed && isClickable) {
-            bgp.color = 0x26FFFFFF
-            if (circle) c.drawOval(rf, bgp) else c.drawRoundRect(rf, S.p(radius), S.p(radius), bgp)
+            bgp.color = if (C.night) 0x26FFFFFF else 0x1A000000
+            rf.set(0f, 0f, w, h)
+            when {
+                chamfer -> c.drawPath(path, bgp)
+                circle || grad -> c.drawOval(rf, bgp)
+                else -> c.drawRoundRect(rf, S.p(radius), S.p(radius), bgp)
+            }
         }
         val d = drawable
         if (d != null) {
@@ -65,7 +147,13 @@ class IconBtn(ctx: Context, var icon: Ic, private val iconSize: Float = 24f) : V
             d.setBounds(((w - sz) / 2).toInt(), ((h - sz) / 2).toInt(), ((w + sz) / 2).toInt(), ((h + sz) / 2).toInt())
             d.draw(c)
         } else {
-            Icons.draw(c, icon, w / 2f, h / 2f, S.p(iconSize), fg, sw)
+            Icons.draw(c, icon, w / 2f, h / 2f, S.p(iconSize), iconColor, sw)
+        }
+        if (badge != 0) {
+            val r = S.p(5f)
+            val bx = w - S.p(10f); val by = S.p(10f)
+            bgp.color = C.BG; c.drawCircle(bx, by, r + S.p(2f), bgp)
+            bgp.color = badge; c.drawCircle(bx, by, r, bgp)
         }
     }
 }
@@ -92,10 +180,24 @@ object Arc {
         c.drawArc(rf, 135f, 270f, false, p)
         val f = frac.coerceIn(0f, 1f)
         if (f > 0.002f) {
-            p.color = color
-            c.drawArc(rf, 135f, 270f * f, false, p)
+            if (Skin.glass && color == C.accent) {
+                p.color = withAlpha(color, 0.14f)
+                p.strokeWidth = sw * 2.4f
+                c.drawArc(rf, 135f, 270f * f, false, p)
+                p.strokeWidth = sw
+                val g = SweepGradient(cx, cy, intArrayOf(color, Skin.accent2, Skin.accent2), floatArrayOf(0f, 0.75f, 1f))
+                m.setRotate(135f, cx, cy); g.setLocalMatrix(m)
+                p.shader = g
+                c.drawArc(rf, 135f, 270f * f, false, p)
+                p.shader = null
+            } else {
+                p.color = color
+                c.drawArc(rf, 135f, 270f * f, false, p)
+            }
         }
     }
+
+    private val m = Matrix()
 }
 
 class SpeedGauge(ctx: Context) : View(ctx) {
@@ -115,7 +217,7 @@ class SpeedGauge(ctx: Context) : View(ctx) {
     }
 
     override fun onDraw(c: Canvas) {
-        val sw = S.p(12f)
+        val sw = S.p(if (Skin.glass) 8f else 12f)
         val (cx, cy, r) = Arc.fit(width.toFloat(), height.toFloat(), sw).let { Triple(it[0], it[1], it[2]) }
         Arc.draw(c, cx, cy, r, frac, sw, if (warn) C.WARN else C.accent, p)
         tp.typeface = F.numeric
@@ -155,7 +257,7 @@ class RingGauge(ctx: Context) : View(ctx) {
         val w = width.toFloat()
         val h = height.toFloat()
         if (ring) {
-            val sw = max(S.p(6f), min(w, h) * 0.075f)
+            val sw = max(S.p(if (Skin.glass) 5f else 6f), min(w, h) * (if (Skin.glass) 0.05f else 0.075f))
             val f = Arc.fit(w, h, sw)
             val cx = f[0]; val cy = f[1]; val r = f[2]
             Arc.draw(c, cx, cy, r, frac, sw, if (warn) C.WARN else C.accent, p)
@@ -217,7 +319,7 @@ class Tile(ctx: Context, labelOnTop: Boolean, valueSize: Float = 22f) : LinearLa
 
     init {
         orientation = VERTICAL
-        background = roundBg(C.CARD2, 12f)
+        background = Skin.tile()
         pad(10f, 9f)
         if (labelOnTop) {
             addView(name, lp(MATCH, WRAP))
@@ -231,24 +333,44 @@ class Tile(ctx: Context, labelOnTop: Boolean, valueSize: Float = 22f) : LinearLa
     fun set(v: String, n: String) { value.put(v); name.put(n) }
 }
 
-/** Thin progress bar. */
+/** Thin progress bar. Aurora Glass: gradient with a glow and a round knob; Carbon Sport: square ends. */
 class Bar(ctx: Context) : View(ctx) {
     var frac = 0f
         set(v) { if (field != v) { field = v; invalidate() } }
     var color = 0
+    /** Round knob at the end (music progress). */
+    var knob = false
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rf = RectF()
 
     override fun onDraw(c: Canvas) {
-        val h = height.toFloat()
-        rf.set(0f, 0f, width.toFloat(), h)
+        val h = if (knob) min(height.toFloat(), S.p(4f)) else height.toFloat()
+        val top = (height - h) / 2f
+        val kr = if (knob) min(height / 2f, S.p(6f)) else 0f
+        val x0 = kr; val x1 = width - kr
+        val rr = if (Skin.sport) 0f else h / 2
+        p.shader = null
+        rf.set(x0, top, x1, top + h)
         p.color = C.TRACK
-        c.drawRoundRect(rf, h / 2, h / 2, p)
+        c.drawRoundRect(rf, rr, rr, p)
         val f = frac.coerceIn(0f, 1f)
         if (f > 0f) {
-            rf.set(0f, 0f, width * f, h)
-            p.color = if (color != 0) color else C.accent
-            c.drawRoundRect(rf, h / 2, h / 2, p)
+            val col = if (color != 0) color else C.accent
+            val fx = x0 + (x1 - x0) * f
+            if (Skin.glass && color == 0) {
+                rf.set(x0 - h, top - h, fx + h, top + 2 * h)
+                p.color = withAlpha(col, 0.16f)
+                c.drawRoundRect(rf, h * 1.5f, h * 1.5f, p)
+                p.shader = LinearGradient(x0, 0f, x1, 0f, col, Skin.accent2, Shader.TileMode.CLAMP)
+            } else p.color = col
+            rf.set(x0, top, fx, top + h)
+            c.drawRoundRect(rf, rr, rr, p)
+            p.shader = null
+            if (knob) {
+                p.color = if (C.night) 0xFFFFFFFF.toInt() else C.TEXT
+                if (Skin.sport) c.drawRect(fx - S.p(2f), top - S.p(4f), fx + S.p(2f), top + h + S.p(4f), p)
+                else c.drawCircle(fx, top + h / 2, kr, p)
+            }
         }
     }
 }
@@ -336,7 +458,7 @@ class RoadView(ctx: Context) : View(ctx) {
         val hy = 128f * sy
         // rounded corners even when the unit draws without hardware acceleration
         clip.reset(); clipRect.set(0f, 0f, w, h)
-        clip.addRoundRect(clipRect, S.p(19f), S.p(19f), Path.Direction.CW)
+        clip.addRoundRect(clipRect, S.p(Skin.radius - 1f), S.p(Skin.radius - 1f), Path.Direction.CW)
         c.clipPath(clip)
         fill.color = C.ROAD_BG
         c.drawRect(0f, 0f, w, h, fill)
@@ -391,7 +513,10 @@ class RoadView(ctx: Context) : View(ctx) {
 }
 
 
-/** Plain colour, a starfield (still or slowly moving) or the owner's photo behind the cards. */
+/**
+ * Behind the cards: the theme's backdrop (Aurora Glass glows, Carbon Sport weave, or plain colour),
+ * then optional stars (still or slowly moving) or the owner's photo.
+ */
 class BackgroundView(ctx: Context, private val kind: String, private val photo: Bitmap?) : View(ctx) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val stars = FloatArray(3 * 160).also { a ->
@@ -400,12 +525,71 @@ class BackgroundView(ctx: Context, private val kind: String, private val photo: 
     }
     private var t0 = 0L
     private val m = Matrix()
+    private var weave: BitmapShader? = null
+
+    private fun glow(c: Canvas, x: Float, y: Float, r: Float, color: Int, alpha: Float) {
+        p.shader = RadialGradient(x, y, r, withAlpha(color, alpha), withAlpha(color, 0f), Shader.TileMode.CLAMP)
+        c.drawRect(x - r, y - r, x + r, y + r, p)
+        p.shader = null
+    }
+
+    private fun aurora(c: Canvas, w: Float, h: Float, k: Float) {
+        // k: 0..1 slow cycle; the glows drift and breathe a little
+        val a = (k * 2 * Math.PI).toFloat()
+        val dx = kotlin.math.sin(a) * w * 0.035f
+        val dy = kotlin.math.cos(a) * h * 0.04f
+        val br = 0.88f + 0.12f * kotlin.math.sin(a * 2)
+        if (C.night) {
+            glow(c, w * 0.08f + dx, h * 0.02f + dy, w * 0.55f, 0xFF5C9CFF.toInt(), 0.30f * br)
+            glow(c, w * 0.94f - dx, h * 1.02f - dy, w * 0.60f, 0xFF966EFF.toInt(), 0.24f * (2 - br))
+            glow(c, w * 0.42f - dx * 0.6f, h * 0.86f, w * 0.34f, C.accent, 0.10f * br)
+        } else {
+            glow(c, w * 0.08f + dx, h * 0.02f + dy, w * 0.60f, 0xFF8EC5FF.toInt(), 0.55f * br)
+            glow(c, w * 0.94f - dx, h * 1.02f - dy, w * 0.62f, 0xFFC7B4FF.toInt(), 0.55f * (2 - br))
+            glow(c, w * 0.42f - dx * 0.6f, h * 0.86f, w * 0.34f, C.accent, 0.18f * br)
+        }
+    }
+
+    private fun carbon(c: Canvas, w: Float, h: Float) {
+        val sh = weave ?: run {
+            val n = max(4, S.i(7f))
+            val b = Bitmap.createBitmap(2 * n, 2 * n, Bitmap.Config.ARGB_8888)
+            val bc = Canvas(b)
+            val q = Paint()
+            val hi = if (C.night) 0xFF121418.toInt() else 0xFFEEF0F3.toInt()
+            val lo = if (C.night) 0xFF060708.toInt() else 0xFFD9DCE1.toInt()
+            for (i in 0..1) for (j in 0..1) {
+                val l = (i * n).toFloat(); val tp = (j * n).toFloat()
+                q.shader = if ((i + j) % 2 == 0) LinearGradient(l, tp, l, tp + n, hi, lo, Shader.TileMode.CLAMP)
+                    else LinearGradient(l, tp, l + n, tp, hi, lo, Shader.TileMode.CLAMP)
+                bc.drawRect(l, tp, l + n, tp + n, q)
+            }
+            BitmapShader(b, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT).also { weave = it }
+        }
+        p.shader = sh
+        c.drawRect(0f, 0f, w, h, p)
+        p.shader = null
+        if (C.night) {
+            p.shader = RadialGradient(w / 2, h * 0.45f, max(w, h) * 0.75f, intArrayOf(0x00000000, 0x00000000, 0xC0000000.toInt()),
+                floatArrayOf(0f, 0.35f, 1f), Shader.TileMode.CLAMP)
+            c.drawRect(0f, 0f, w, h, p)
+            p.shader = null
+        }
+        glow(c, w / 2, h * 0.8f, w * 0.36f, C.accent, if (C.night) 0.13f else 0.10f)
+    }
 
     override fun onDraw(c: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
         p.shader = null
         p.color = C.BG
         c.drawRect(0f, 0f, w, h, p)
+        val now = System.currentTimeMillis()
+        if (t0 == 0L) t0 = now
+        var animate = false
+        if (kind != "photo") when {
+            Skin.glass -> { aurora(c, w, h, if (Motion.on) ((now - t0) % 40_000L) / 40_000f else 0f); animate = Motion.on }
+            Skin.sport -> carbon(c, w, h)
+        }
         when (kind) {
             "photo" -> {
                 val b = photo ?: return
@@ -416,8 +600,6 @@ class BackgroundView(ctx: Context, private val kind: String, private val photo: 
                 c.drawRect(0f, 0f, w, h, p)
             }
             "stars", "moving" -> {
-                val now = System.currentTimeMillis()
-                if (t0 == 0L) t0 = now
                 val drift = if (kind == "moving") ((now - t0) % 600_000L) / 600_000f else 0f
                 for (i in 0 until stars.size / 3) {
                     val depth = stars[i * 3 + 2]
@@ -426,9 +608,10 @@ class BackgroundView(ctx: Context, private val kind: String, private val photo: 
                     p.color = if (C.night) withAlpha(0xFFFFFFFF.toInt(), 0.15f + depth * 0.5f) else withAlpha(0xFF8A95A3.toInt(), 0.25f + depth * 0.4f)
                     c.drawCircle(x, y, S.p(0.6f + depth * 1.4f), p)
                 }
-                if (kind == "moving" && isShown) postInvalidateDelayed(80)
+                if (kind == "moving") animate = true
             }
         }
+        if (animate && isShown) postInvalidateDelayed(if (kind == "moving") 80L else 66L)
     }
 }
 

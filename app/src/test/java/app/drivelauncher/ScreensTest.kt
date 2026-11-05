@@ -31,6 +31,9 @@ class ScreensTest {
     private val pagesJson = """[{"layout":"classic","cards":["speed","trip","road","gauges","map","media"]},""" +
         """{"layout":"map","cards":["speed","media","map"]},""" +
         """{"layout":"grid","cards":["clock","compass","car","logo"]}]"""
+    private val glassJson = """[{"layout":"aurora","cards":["hero","nav","media"]},""" +
+        """{"layout":"map","cards":["speed","media","map"]},""" +
+        """{"layout":"grid","cards":["clock","compass","car","stats"]}]"""
 
     private fun sample(act: MainActivity) {
         Obd.stop()
@@ -107,11 +110,13 @@ class ScreensTest {
     }
 
     private fun shoot(name: String, full: Boolean) {
+        Motion.allowed = false // no half-finished animations in the pictures
         val app = RuntimeEnvironment.getApplication()
         Prefs.init(app)
         Prefs.obdMode = "off"
         Prefs.theme = "night"
-        Prefs.pages = pagesJson
+        Prefs.skin = Skin.GLASS
+        Prefs.pages = glassJson
         val ctrl = Robolectric.buildActivity(MainActivity::class.java).setup()
         val act = ctrl.get()
         Obd.stop()
@@ -119,38 +124,61 @@ class ScreensTest {
         sample(act)
         act.rebuild()
         idle()
-        // home page 1, after map tiles have had a moment to download
-        act.showHome(0)
+        // ---- Aurora Glass (default theme)
+        act.showHome(1)
         Thread.sleep(5000); idle()
-        SystemClock.sleep(9000) // let failed tiles retry
-        act.showHome(0); Thread.sleep(3000)
+        SystemClock.sleep(9000) // let map tiles download and failed ones retry
+        act.showHome(1); Thread.sleep(3000)
         Gps.lastFix = SystemClock.elapsedRealtime()
-        save(act, "$name-home1")
-        act.showHome(1); Thread.sleep(2000); save(act, "$name-home2")
-        act.showHome(2); save(act, "$name-home3")
-        act.show(MainActivity.Page.TELEMETRY); save(act, "$name-telemetry")
+        save(act, "$name-glass-home2")
+        act.showHome(0); save(act, "$name-glass-home1")
+        act.showHome(2); save(act, "$name-glass-home3")
+        act.show(MainActivity.Page.TELEMETRY); save(act, "$name-glass-telemetry")
         if (full) {
             for ((i, t) in listOf("trips", "fuel", "service", "engine", "parking").withIndex()) {
                 act.showCarTab(i)
                 if (t == "parking") Thread.sleep(2500)
-                save(act, "$name-car-$t")
+                save(act, "$name-glass-car-$t")
             }
-            act.show(MainActivity.Page.SOURCES); save(act, "$name-settings")
+            act.show(MainActivity.Page.SOURCES); save(act, "$name-glass-settings")
             findScroll(act.window.decorView)?.let { sv ->
-                sv.scrollTo(0, 1100); save(act, "$name-settings2")
-                sv.scrollTo(0, 100_000); save(act, "$name-settings3")
+                sv.scrollTo(0, 1100); save(act, "$name-glass-settings2")
+                sv.scrollTo(0, 100_000); save(act, "$name-glass-settings3")
             }
-            act.show(MainActivity.Page.APPS); save(act, "$name-apps")
-            // day look
+            act.show(MainActivity.Page.APPS); save(act, "$name-glass-apps")
             Prefs.theme = "day"
             act.applyTheme()
-            act.showHome(0); Thread.sleep(3000); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-day-home1")
-            act.showCarTab(1); save(act, "$name-day-car-fuel")
+            act.showHome(0); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-glass-day-home1")
+            act.showHome(1); Thread.sleep(2500); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-glass-day-home2")
+            act.showCarTab(1); save(act, "$name-glass-day-car-fuel")
             Prefs.theme = "night"
             Prefs.background = "stars"
             act.applyTheme()
-            act.showHome(1); Thread.sleep(1500); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-stars-home2")
+            act.showHome(0); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-glass-stars-home1")
+            Prefs.background = "plain"
         }
+        // ---- Carbon Sport (standard pages of the theme)
+        Prefs.skin = Skin.SPORT
+        Prefs.pages = ""
+        act.rebuild()
+        act.showHome(0); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-sport-home1")
+        act.showHome(1); Thread.sleep(2500); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-sport-home2")
+        act.showHome(2); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-sport-home3")
+        if (full) {
+            act.show(MainActivity.Page.TELEMETRY); save(act, "$name-sport-telemetry")
+            act.showCarTab(2); save(act, "$name-sport-car-service")
+            act.show(MainActivity.Page.SOURCES); save(act, "$name-sport-settings")
+            Prefs.theme = "day"
+            act.applyTheme()
+            act.showHome(0); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-sport-day-home1")
+            Prefs.theme = "night"
+        }
+        // ---- Classic
+        Prefs.skin = Skin.CLASSIC
+        Prefs.pages = pagesJson
+        act.rebuild()
+        act.showHome(0); Thread.sleep(1500); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-classic-home1")
+        if (full) { act.showHome(2); save(act, "$name-classic-home3") }
         println(Diag.recentLines(80).joinToString("\n"))
         ctrl.pause().stop().destroy()
     }

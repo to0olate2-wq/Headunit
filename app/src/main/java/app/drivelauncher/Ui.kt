@@ -16,19 +16,23 @@ import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/** Colour palette. Night (dark) is the default; [apply] switches to the day palette. */
+/** Colour palette. Night (dark) is the default; [apply] switches to the day palette and follows the [Skin]. */
 object C {
     var BG = 0; var CARD = 0; var CARD2 = 0; var ROAD_BG = 0; var BORDER = 0; var BORDER2 = 0; var TRACK = 0
     var TEXT = 0; var TEXT2 = 0; var TEXT3 = 0; var MUTED = 0
     var BLUE = 0; var BLUE_TEXT = 0; var BLUE_BG = 0; var WARN = 0; var AMBER_TEXT = 0; var AMBER_BG = 0
     var MAP_BG = 0; var ROAD = 0; var ROAD_EDGE = 0; var HORIZON = 0; var ART_BG = 0; var SEP = 0
     var CAR_BODY = 0; var CAR_ROOF = 0; var CAR_GLASS = 0
-    /** Text/icon colour on top of the accent colour (always dark for contrast). */
+    /** Chips and buttons floating over a map or the road (stay readable on any picture). */
+    var FLOAT = 0
+    /** Text/icon colour on top of a flat accent colour (always dark for contrast). */
     const val ON_ACCENT = 0xFF0B0D10.toInt()
-    var accent = 0xFFFF9F43.toInt()
+    /** Icon colour on accent gradients and colourful app tiles. */
+    const val ON_GRAD = 0xFFFFFFFF.toInt()
+    var accent = 0xFF6CB8FF.toInt()
     var night = true
         private set
-    val ACCENTS = intArrayOf(0xFFFF9F43.toInt(), 0xFF4DA3FF.toInt(), 0xFF3DDC97.toInt(), 0xFFF2F4F7.toInt())
+    val ACCENTS: IntArray get() = Skin.accents()
 
     init { apply(true, false) }
 
@@ -56,6 +60,41 @@ object C {
             ART_BG = 0xFFE3E7EC.toInt(); SEP = 0xFFC6CDD5.toInt()
             CAR_BODY = 0xFF3B434D.toInt(); CAR_ROOF = 0xFF59626D.toInt(); CAR_GLASS = 0xFF1A1F25.toInt()
         }
+        FLOAT = CARD2
+        when {
+            Skin.glass && night -> {
+                BG = 0xFF05070B.toInt(); CARD = 0x12FFFFFF; CARD2 = 0x17FFFFFF; ROAD_BG = 0x10FFFFFF
+                BORDER = 0x1AFFFFFF; BORDER2 = 0x26FFFFFF; TRACK = 0x24FFFFFF
+                TEXT = 0xFFF4F6FA.toInt(); TEXT2 = 0xFFCBD3DE.toInt(); TEXT3 = 0xFFE3E8EF.toInt(); MUTED = 0xFF919CAB.toInt()
+                BLUE = 0xFF6CB8FF.toInt(); BLUE_TEXT = 0xFFA4D0FF.toInt(); BLUE_BG = 0x336CB8FF
+                WARN = 0xFFFF5A6A.toInt(); AMBER_TEXT = 0xFFFFC36B.toInt(); AMBER_BG = 0x33FFB44D
+                MAP_BG = 0xFF0E1218.toInt(); ROAD = 0x55000000; ROAD_EDGE = 0x47FFFFFF; HORIZON = 0x1FFFFFFF
+                ART_BG = 0x1FFFFFFF; SEP = 0x2EFFFFFF; FLOAT = 0xE6121722.toInt()
+            }
+            Skin.glass -> {
+                BG = 0xFFE7ECF4.toInt(); CARD = 0xA6FFFFFF.toInt(); CARD2 = 0x0F1B2A44; ROAD_BG = 0x80FFFFFF.toInt()
+                BORDER = 0x1F1B2A44; BORDER2 = 0x2E1B2A44; TRACK = 0x241B2A44
+                TEXT = 0xFF0D1220.toInt(); TEXT2 = 0xFF283245.toInt(); TEXT3 = 0xFF1A2232.toInt(); MUTED = 0xFF566175.toInt()
+                BLUE = 0xFF2F7FE0.toInt(); BLUE_TEXT = 0xFF14589F.toInt(); BLUE_BG = 0x332F7FE0
+                WARN = 0xFFD12F3A.toInt(); AMBER_TEXT = 0xFF8A4A00.toInt(); AMBER_BG = 0x33F2A33A
+                MAP_BG = 0xFFE3E8EF.toInt(); ROAD = 0x331B2A44; ROAD_EDGE = 0x661B2A44; HORIZON = 0x261B2A44
+                ART_BG = 0x1F1B2A44; SEP = 0x331B2A44; FLOAT = 0xEBFFFFFF.toInt()
+            }
+            Skin.sport && night -> {
+                BG = 0xFF07080A.toInt(); CARD = 0x0FFFFFFF; CARD2 = 0x14FFFFFF; ROAD_BG = 0xFF0C0D10.toInt()
+                BORDER = 0x17FFFFFF; BORDER2 = 0x24FFFFFF; TRACK = 0xFF1E2126.toInt()
+                TEXT = 0xFFF4F6FA.toInt(); TEXT2 = 0xFFC9CED6.toInt(); TEXT3 = 0xFFDDE1E7.toInt(); MUTED = 0xFF8E96A3.toInt()
+                WARN = 0xFFFF5A4E.toInt()
+                MAP_BG = 0xFF101215.toInt(); ROAD = 0xFF121418.toInt(); ROAD_EDGE = 0xFF3A3F47.toInt(); HORIZON = 0xFF1C1F24.toInt()
+                ART_BG = 0xFF1C1F24.toInt(); SEP = 0x2EFFFFFF; FLOAT = 0xE6121418.toInt()
+            }
+            Skin.sport -> {
+                BG = 0xFFE3E5E9.toInt(); CARD = 0xD9FFFFFF.toInt(); CARD2 = 0x12000000; ROAD_BG = 0xFFEDEFF2.toInt()
+                BORDER = 0x1F000000; BORDER2 = 0x2E000000; TRACK = 0xFFD5D9DF.toInt()
+                TEXT = 0xFF0E1013.toInt(); TEXT2 = 0xFF2A2F36.toInt(); TEXT3 = 0xFF1B1F25.toInt(); MUTED = 0xFF555D68.toInt()
+                ART_BG = 0xFFDDE1E6.toInt(); SEP = 0x2E000000; FLOAT = 0xEBFFFFFF.toInt()
+            }
+        }
     }
 }
 
@@ -79,18 +118,40 @@ object F {
     var semibold: Typeface = Typeface.DEFAULT_BOLD
     var bold: Typeface = Typeface.DEFAULT_BOLD
     var numeric: Typeface = Typeface.DEFAULT_BOLD
-    private var loaded = false
+    /** Very large numbers (speed, clock). */
+    var display: Typeface = Typeface.DEFAULT
+    private val all = HashMap<String, Typeface>()
 
     fun load(ctx: Context) {
-        if (loaded) return
-        fun f(name: String, fb: Typeface): Typeface =
-            try { Typeface.createFromAsset(ctx.assets, "fonts/$name") } catch (e: Exception) { fb }
-        regular = f("Barlow-Regular.ttf", Typeface.DEFAULT)
-        medium = f("Barlow-Medium.ttf", Typeface.DEFAULT)
-        semibold = f("Barlow-SemiBold.ttf", Typeface.DEFAULT_BOLD)
-        bold = f("Barlow-Bold.ttf", Typeface.DEFAULT_BOLD)
-        numeric = f("BarlowSemiCondensed-SemiBold.ttf", Typeface.DEFAULT_BOLD)
-        loaded = true
+        if (all.isEmpty()) {
+            for (n in listOf("Barlow-Regular", "Barlow-Medium", "Barlow-SemiBold", "Barlow-Bold", "BarlowSemiCondensed-SemiBold",
+                "Outfit-ExtraLight", "Outfit-Light", "Outfit-Regular", "Outfit-Medium", "Outfit-SemiBold",
+                "Rajdhani-Medium", "Rajdhani-SemiBold", "Rajdhani-Bold")) {
+                try { all[n] = Typeface.createFromAsset(ctx.assets, "fonts/$n.ttf") } catch (_: Exception) {}
+            }
+        }
+        apply()
+    }
+
+    /** Pick the fonts of the current [Skin]. */
+    fun apply() {
+        fun f(name: String, fb: Typeface): Typeface = all[name] ?: fb
+        regular = f("Barlow-Regular", Typeface.DEFAULT)
+        medium = f("Barlow-Medium", Typeface.DEFAULT)
+        semibold = f("Barlow-SemiBold", Typeface.DEFAULT_BOLD)
+        bold = f("Barlow-Bold", Typeface.DEFAULT_BOLD)
+        numeric = f("BarlowSemiCondensed-SemiBold", Typeface.DEFAULT_BOLD)
+        display = numeric
+        when (Skin.id) {
+            Skin.GLASS -> {
+                regular = f("Outfit-Regular", regular); medium = f("Outfit-Medium", medium)
+                semibold = f("Outfit-SemiBold", semibold); bold = f("Outfit-SemiBold", bold)
+                numeric = f("Outfit-Light", numeric); display = f("Outfit-ExtraLight", numeric)
+            }
+            Skin.SPORT -> {
+                numeric = f("Rajdhani-Bold", numeric); display = numeric
+            }
+        }
     }
 }
 
@@ -106,7 +167,7 @@ fun roundBg(color: Int, radius: Float, stroke: Int = 0): GradientDrawable = Grad
     if (stroke != 0) setStroke(max(1, S.i(1)), stroke)
 }
 
-fun cardBg(color: Int = C.CARD): GradientDrawable = roundBg(color, 20f, C.BORDER)
+fun cardBg(color: Int = C.CARD, clip: Boolean = false): android.graphics.drawable.Drawable = Skin.card(color, clip)
 
 private fun gapDrawable(px: Int): GradientDrawable = GradientDrawable().apply {
     setSize(px, px)
@@ -145,7 +206,7 @@ fun Context.label(
     ellipsize = TextUtils.TruncateAt.END
     if (caps) {
         isAllCaps = true // after setSingleLine, which would otherwise replace it
-        letterSpacing = 0.08f
+        letterSpacing = if (Skin.id == Skin.CLASSIC) 0.08f else 0.16f
     }
 }
 

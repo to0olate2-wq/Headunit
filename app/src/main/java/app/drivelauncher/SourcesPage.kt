@@ -137,6 +137,11 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         }
 
         val look = group("Look")
+        val skins = Skin.NAMES.keys.toList()
+        row(look, "Theme",
+            segmented(Skin.NAMES.values.toList(), { skins.indexOf(Prefs.skin) }) { i ->
+                if (Prefs.skin != skins[i]) { Prefs.skin = skins[i]; a.rebuild(); a.show(MainActivity.Page.SOURCES) }
+            })
         val swatches = a.hbox(10f)
         for (c in C.ACCENTS) {
             val swatch = IconBtn(a, if (c == C.accent) Ic.CHECK else Ic.DASH, 20f)
@@ -165,9 +170,11 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
             })
         row(look, "Your logo or photo (for the \"Your logo\" card)", button("Choose picture").apply { setOnClickListener { a.pickImage(MainActivity.REQ_LOGO) } })
         row(look, "Home screen: tap and hold any card to change it, add pages or widgets",
-            button("Reset layout").apply { setOnClickListener { a.confirm("Reset the home screen?", "Back to the two standard pages.") { Prefs.pages = ""; a.rebuild() } } })
+            button("Reset layout").apply { setOnClickListener { a.confirm("Reset the home screen?", "Back to this theme's standard pages.") { Prefs.pages = ""; a.rebuild() } } })
         row(look, "Dock: tap and hold an app button to change it",
             button("Reset dock").apply { setOnClickListener { for (i in 0..3) Prefs.ss("dock$i", ""); a.rebuild() } })
+        row(look, "Motion effects (page slides, glowing background, spinning wheels)",
+            segmented(listOf("Off", "On"), { if (Prefs.motion) 1 else 0 }) { i -> Prefs.motion = i == 1; a.rebuild() })
         row(look, "Units", segmented(listOf("Metric", "Imperial"), { if (Prefs.imperial) 1 else 0 }) { i -> Prefs.imperial = i == 1; a.rebuild() })
         row(look, "Full screen (hide system bars)", segmented(listOf("Off", "On"), { if (Prefs.fullscreen) 1 else 0 }) { i -> Prefs.fullscreen = i == 1; a.applyFullscreen() })
         row(look, "Screen saver when parked", segmented(listOf("Off", "2 min", "5 min", "10 min"), { listOf(0, 2, 5, 10).indexOf(Prefs.saverMin) }) { i ->
@@ -274,7 +281,7 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         ", modify system settings: " + (if (ThemeMgr.canWriteSettings(a)) "allowed" else "not allowed") +
         "\nAuto-start: " + Prefs.autoApp + " → " + (AutoStart.target(a) ?: "nothing") + ", resume music " + Prefs.autoPlay +
         "\nTrips saved: ${Trips.list().size}, odometer ${fmt("%.1f", Odometer.km)} km, parking ${if (Parking.has) "saved" else "none"}" +
-        "\nTheme: ${Prefs.theme} (now ${if (C.night) "night" else "day"}), background ${Prefs.background}"
+        "\nTheme: ${Skin.NAMES[Skin.id]}, ${Prefs.theme} (now ${if (C.night) "night" else "day"}), background ${Prefs.background}"
 
     fun update() {
         // GPS

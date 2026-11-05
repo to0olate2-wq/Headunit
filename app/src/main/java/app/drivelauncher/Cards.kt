@@ -136,7 +136,7 @@ class TurnChip(private val a: MainActivity) {
     private var activeShown: Boolean? = null
 
     init {
-        view.background = roundBg(C.CARD2, 16f, C.BORDER2)
+        view.background = roundBg(C.FLOAT, 16f, C.BORDER2)
         view.pad(12f, 12f, 18f, 12f)
         box.addView(img, flp(S.i(36), S.i(36), Gravity.CENTER))
         box.addView(generic, flp(MATCH, MATCH))
@@ -167,8 +167,8 @@ class TurnChip(private val a: MainActivity) {
         }
         if (activeShown != NavHub.active) {
             activeShown = NavHub.active
-            box.background = roundBg(if (NavHub.active) C.accent else C.TRACK, 12f)
-            generic.set(fg = if (NavHub.active) C.ON_ACCENT else C.TEXT2)
+            box.background = if (NavHub.active && Skin.glass) Skin.gradient(12f) else roundBg(if (NavHub.active) C.accent else C.TRACK, if (Skin.sport) 4f else 12f)
+            generic.set(fg = if (!NavHub.active) C.TEXT2 else if (Skin.glass) C.ON_GRAD else C.ON_ACCENT)
         }
     }
 }
@@ -183,12 +183,12 @@ class RoadCard(private val a: MainActivity) : Card {
     private val wxTime: TextView = a.label(18f, C.TEXT, F.semibold).tnum()
 
     init {
-        view.background = roundBg(C.ROAD_BG, 20f, C.BORDER)
+        view.background = cardBg(C.ROAD_BG, clip = true)
         view.clipToOutline = true
         view.addView(road, flp(MATCH, MATCH))
         view.addView(turn.view, flp(WRAP, WRAP, Gravity.TOP or Gravity.START).apply { leftMargin = S.i(16); topMargin = S.i(16) })
         val wx = a.hbox(10f)
-        wx.background = roundBg(C.CARD2, 999f, C.BORDER2)
+        wx.background = roundBg(C.FLOAT, 999f, C.BORDER2)
         wx.pad(16f, 10f)
         wx.addView(wxIcon, lp(S.i(20), S.i(20)))
         wx.addView(wxTemp, lp(WRAP, WRAP))
@@ -243,21 +243,21 @@ class MapCard(private val a: MainActivity, showTurn: Boolean) : Card {
     private val eta: TextView = a.label(15f, C.TEXT, F.semibold, lines = 2)
 
     init {
-        view.background = roundBg(C.MAP_BG, 20f, C.BORDER)
+        view.background = cardBg(C.MAP_BG, clip = true)
         view.clipToOutline = true
         map.zoom = Prefs.mapZoom
         view.addView(map, flp(MATCH, MATCH))
         map.setOnClickListener { a.openNav() }
         val top = a.vbox(8f)
         turn?.let { top.addView(it.view, lp(WRAP, WRAP)) }
-        eta.background = roundBg(C.CARD2, 14f, C.BORDER2)
+        eta.background = roundBg(C.FLOAT, 14f, C.BORDER2)
         eta.pad(14f, 10f)
         eta.maxWidth = S.i(300)
         top.addView(eta, lp(WRAP, WRAP))
         view.addView(top, flp(WRAP, WRAP, Gravity.TOP or Gravity.START).apply { leftMargin = S.i(12); topMargin = S.i(12) })
         val col = a.vbox(8f)
         fun b(ic: Ic, desc: String, f: () -> Unit) = IconBtn(a, ic, 20f).apply {
-            bgColor = C.CARD2; radius = 12f; fg = C.TEXT3; contentDescription = desc
+            bgColor = C.FLOAT; radius = 12f; fg = C.TEXT3; contentDescription = desc
             setOnClickListener { f() }
             col.addView(this, lp(S.i(44), S.i(44)))
         }
@@ -279,7 +279,7 @@ class MapCard(private val a: MainActivity, showTurn: Boolean) : Card {
 
 class ClockCard(private val a: MainActivity) : Card {
     override val view: LinearLayout = a.vbox(6f)
-    private val time: TextView = a.label(96f, C.TEXT, F.numeric).tnum()
+    private val time: TextView = a.label(if (Skin.glass) 110f else 96f, C.TEXT, F.display).tnum()
     private val ampm: TextView = a.label(24f, C.MUTED, F.semibold)
     private val date: TextView = a.label(20f, C.TEXT2, F.medium)
     private val wxIcon = IconBtn(a, Ic.SUN, 22f).apply { isClickable = false }
@@ -426,23 +426,37 @@ class PageCfg(var layout: String, val cards: MutableList<String>) {
 
 object HomePages {
     val CARD_TYPES = linkedMapOf(
-        "speed" to "Speed", "trip" to "Trip computer", "road" to "Road & next turn", "gauges" to "Engine gauges",
+        "hero" to "Drive hero (speed, clock, car)", "speed" to "Speed", "rpm" to "RPM dial", "trip" to "Trip computer",
+        "nav" to "Next turn", "road" to "Road & next turn", "gauges" to "Engine gauges", "stats" to "Readouts (4 numbers)",
         "map" to "Map", "media" to "Music", "clock" to "Clock & weather", "compass" to "Compass",
         "car" to "Car care", "logo" to "Your logo",
     )
     val LAYOUTS = linkedMapOf(
+        "aurora" to "Hero — 1 big + 2 cards", "cockpit" to "Cockpit — 2 dials + 3 cards",
         "classic" to "Classic — 6 cards", "map" to "Big map — 3 cards", "grid" to "Grid — 4 cards",
         "duo" to "Two halves — 2 cards", "dash" to "Column — 3 cards",
     )
 
-    fun slots(layout: String) = when (layout) { "classic" -> 6; "map" -> 3; "grid" -> 4; "duo" -> 2; else -> 3 }
+    fun slots(layout: String) = when (layout) { "classic" -> 6; "map" -> 3; "grid" -> 4; "duo" -> 2; "cockpit" -> 5; else -> 3 }
 
     fun defaults(layout: String): List<String> = when (layout) {
+        "aurora" -> listOf("hero", "nav", "media")
+        "cockpit" -> listOf("rpm", "nav", "media", "stats", "speed")
         "classic" -> listOf("speed", "trip", "road", "gauges", "map", "media")
         "map" -> listOf("speed", "media", "map")
         "grid" -> listOf("speed", "media", "clock", "car")
         "duo" -> listOf("road", "media")
         else -> listOf("speed", "road", "media")
+    }
+
+    /** Standard pages of the current theme. */
+    fun standard(): MutableList<PageCfg> {
+        fun pg(l: String) = PageCfg(l, defaults(l).toMutableList())
+        return when (Skin.id) {
+            Skin.GLASS -> mutableListOf(pg("aurora"), pg("map"), pg("classic"))
+            Skin.SPORT -> mutableListOf(pg("cockpit"), pg("map"), pg("classic"))
+            else -> mutableListOf(pg("classic"), pg("map"))
+        }
     }
 
     fun load(): MutableList<PageCfg> {
@@ -463,10 +477,7 @@ object HomePages {
                 }
             }
         } catch (_: Exception) {}
-        if (out.isEmpty()) {
-            out.add(PageCfg("classic", defaults("classic").toMutableList()))
-            out.add(PageCfg("map", defaults("map").toMutableList()))
-        }
+        if (out.isEmpty()) out.addAll(standard())
         return out
     }
 
@@ -483,18 +494,25 @@ object HomePages {
 class HomePage(private val a: MainActivity, val index: Int, portrait: Boolean, cfg: PageCfg) {
     val view: LinearLayout
     private val cards = ArrayList<Card>()
+    /** This page shows the time itself, so the dock clock can stay empty. */
+    val hasClock = "hero" in cfg.cards || "clock" in cfg.cards
 
     init {
-        val showTurn = "road" !in cfg.cards
+        val showTurn = "road" !in cfg.cards && "nav" !in cfg.cards
+        val roomy = cfg.layout == "aurora" || cfg.layout == "duo"
         cfg.cards.forEachIndexed { slot, type ->
             val c: Card = try {
                 when {
-                    type == "speed" -> SpeedCard(a)
+                    type == "hero" -> HeroCard(a)
+                    type == "speed" -> if (Skin.sport) SpeedDialCard(a) else SpeedCard(a)
+                    type == "rpm" -> RpmCard(a)
+                    type == "nav" -> NavCard(a)
+                    type == "stats" -> StatsCard(a)
                     type == "trip" -> TripCard(a)
                     type == "road" -> RoadCard(a)
                     type == "gauges" -> GaugesCard(a)
                     type == "map" -> MapCard(a, showTurn)
-                    type == "media" -> MediaCard(a, false)
+                    type == "media" -> MediaCard(a, false, roomy)
                     type == "clock" -> ClockCard(a)
                     type == "compass" -> CompassCard(a)
                     type == "car" -> CarCareCard(a)
@@ -511,6 +529,10 @@ class HomePage(private val a: MainActivity, val index: Int, portrait: Boolean, c
         }
         val v = cards.map { it.view }
         view = when (cfg.layout) {
+            "aurora" -> if (portrait) col(v[0] to 560f, v[1] to 170f, v[2] to 330f)
+                else row(v[0] to 780f, col(v[1] to 170f, v[2] to 414f) to 456f)
+            "cockpit" -> if (portrait) col(row(v[0] to 1f, v[4] to 1f) to 380f, v[1] to 160f, v[2] to 210f, v[3] to 120f)
+                else row(v[0] to 350f, col(v[1] to 150f, v[2] to 200f, v[3] to 110f) to 500f, v[4] to 350f)
             "map" -> if (portrait) col(row(v[0] to 1f, v[1] to 1f) to 260f, v[2] to 820f)
                 else row(col(v[0] to 340f, v[1] to 260f) to 330f, v[2] to 906f)
             "grid" -> col(row(v[0] to 1f, v[1] to 1f) to 1f, row(v[2] to 1f, v[3] to 1f) to 1f)

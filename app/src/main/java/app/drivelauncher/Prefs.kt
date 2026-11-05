@@ -20,9 +20,14 @@ object Prefs {
 
     private val p: SharedPreferences get() = sp ?: throw IllegalStateException("Prefs not initialised")
 
+    /** glass | sport | classic (see [Skin]) */
+    var skin: String get() = gs("skin", Skin.GLASS); set(v) = ss("skin", v)
+    /** Each theme remembers its own accent colour. */
     var accent: Int
-        get() = p.getInt("accent", 0xFFFF9F43.toInt())
-        set(v) = p.edit().putInt("accent", v).apply()
+        get() = p.getInt("accent_$skin", if (skin == Skin.CLASSIC) p.getInt("accent", Skin.defaultAccent(skin)) else Skin.defaultAccent(skin))
+        set(v) = p.edit().putInt("accent_$skin", v).apply()
+    /** Animations: page transitions, glowing background, spinning wheels. */
+    var motion: Boolean get() = gb("motion", true); set(v) = sb("motion", v)
     var imperial: Boolean
         get() = p.getBoolean("imperial", false)
         set(v) = p.edit().putBoolean("imperial", v).apply()
@@ -76,7 +81,10 @@ object Prefs {
     /** minutes parked before the screen saver shows; 0 = off */
     var saverMin: Int get() = gi("saverMin", 0); set(v) = si("saverMin", v)
     var splitApp: String get() = gs("splitApp", ""); set(v) = ss("splitApp", v)
-    var pages: String get() = gs("pages", ""); set(v) = ss("pages", v)
+    /** Home pages (JSON). Each theme keeps its own; Classic also reads the layout saved before themes existed. */
+    var pages: String
+        get() = gs("pages_$skin", if (skin == Skin.CLASSIC) gs("pages", "") else "")
+        set(v) = ss("pages_$skin", v)
     var currency: String get() = gs("currency", defaultCurrency()); set(v) = ss("currency", v)
 
     private fun defaultCurrency(): String = try {

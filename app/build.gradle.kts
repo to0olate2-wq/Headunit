@@ -15,7 +15,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = 1000 + runNumber
-        versionName = "0.3.$runNumber"
+        versionName = "0.4.$runNumber"
     }
 
     // One fixed key so every new build installs over the old one (settings are kept).
