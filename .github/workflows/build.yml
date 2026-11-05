@@ -1,0 +1,82 @@
+name: Build
+
+# Every push to main: build the APK, run the tests (including the simulated-device
+# screen test), and — only if both pass — publish a release that carries just the APK.
+# Logs and screen pictures go to the ci-results branch (for checking, not for users).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK
+        id: build
+        continue-on-error: true
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace assembleRelease 2>&1 | tee build.log
+
+      - name: Tests and screen pictures
+        id: test
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon testReleaseUnitTest 2>&1 | tee test.log
+
+      - name: Publish release (APK only)
+        if: steps.build.outcome == 'success' && steps.test.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk DriveLauncher.apk
+          git log -1 --format=%B | grep -vE '^(Co-Authored-By|Claude-Session):' > notes.txt
+          gh release create "build-${{ github.run_number }}" DriveLauncher.apk \
+            --title "Drive Launcher 0.2.${{ github.run_number }}" \
+            --notes-file notes.txt --target "${{ github.sha }}" --latest
+
+      - name: Save logs and screen pictures to the ci-results branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD: ${{ steps.build.outcome }}
+          TEST: ${{ steps.test.outcome }}
+        run: |
+          set -e
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf out && mkdir -p out/screens out/test-results
+          echo "build=$BUILD tests=$TEST run=${{ github.run_number }} commit=${{ github.sha }}" > out/status.txt
+          { grep -nE "^e: |error:|FAILED|What went wrong|Exception" build.log | head -150; echo "-----"; tail -n 200 build.log; } > out/build.log 2>/dev/null || true
+          { grep -nE "^e: |FAILED|What went wrong|Exception" test.log | head -150; echo "-----"; tail -n 200 test.log; } > out/test.log 2>/dev/null || true
+          cp app/build/screens/*.png out/screens/ 2>/dev/null || true
+          cp app/build/test-results/testReleaseUnitTest/*.xml out/test-results/ 2>/dev/null || true
+          cd out
+          git init -q -b ci-results
+          git add -A
+          git commit -q -m "CI results for run ${{ github.run_number }}: build $BUILD, tests $TEST"
+          git push -q -f "$remote" ci-results
+
+      - name: Fail the run if the build or tests failed
+        if: steps.build.outcome != 'success' || steps.test.outcome != 'success'
+        run: exit 1
