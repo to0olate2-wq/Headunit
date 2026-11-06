@@ -9,7 +9,7 @@ enum class Ic {
     HOME, MINUS, PLUS, GRID, MIC, PIN, MUSIC, PHONE, SLIDERS, PLAY, PAUSE, PREV, NEXT,
     SHUFFLE, QUEUE, REFRESH, TURN_RIGHT, NAV, LOCATE, MOON, SUN, CLOUD, RAIN, CHECK, PLUG,
     CAR, TIRE, LINK, GAUGE, BT, CLOSE, OPEN, SOURCE, DASH, SPLIT, BACK, FUEL, WRENCH, ENGINE, PARK, ROUTE, TRASH, EDIT,
-    WORK, STAR, COFFEE, FOOD, SEARCH, FOLDER, HIDE, SORT, LEAF
+    WORK, STAR, COFFEE, FOOD, SEARCH, FOLDER, HIDE, SORT, LEAF, SPEAKER, SEND, VIDEO
 }
 
 /** Stroke icons drawn on a 24x24 grid (same shapes as the mockup). */
@@ -195,6 +195,16 @@ object Icons {
                 poly(c, 4f, 10f, 4f, 16f, 7f, 16f, 9f, 19f, 17f, 19f, 17f, 16f, 20f, 16f, 20f, 10f, 17f, 10f, 15f, 7f, 9f, 7f, 7f, 10f, close = true)
                 c.drawLine(10f, 4f, 14f, 4f, sp); c.drawLine(12f, 4f, 12f, 7f, sp)
             }
+            Ic.SPEAKER -> {
+                poly(c, 4f, 9.5f, 8f, 9.5f, 13f, 5f, 13f, 19f, 8f, 14.5f, 4f, 14.5f, close = true)
+                path.reset(); path.moveTo(16f, 9f); path.cubicTo(17.8f, 10.5f, 17.8f, 13.5f, 16f, 15f); c.drawPath(path, sp)
+                path.reset(); path.moveTo(18.5f, 6.5f); path.cubicTo(22f, 9.5f, 22f, 14.5f, 18.5f, 17.5f); c.drawPath(path, sp)
+            }
+            Ic.SEND -> {
+                poly(c, 3.5f, 11.5f, 20.5f, 4f, 15f, 20f, 11.5f, 13f, close = true)
+                c.drawLine(11.5f, 13f, 20.5f, 4f, sp)
+            }
+            Ic.VIDEO -> { rr(c, 3f, 6f, 16f, 18f, 2f); poly(c, 16f, 10.5f, 21f, 7.5f, 21f, 16.5f, 16f, 13.5f) }
             Ic.WORK -> {
                 rr(c, 3f, 7f, 21f, 19f, 2f)
                 poly(c, 9f, 7f, 9f, 5f, 15f, 5f, 15f, 7f)

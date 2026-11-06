@@ -188,9 +188,17 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
                 if (!ThemeMgr.canWriteSettings(a)) a.openWriteSettings()
                 else { Prefs.nightBright = when (Prefs.nightBright) { 20 -> 40; 40 -> 60; else -> 20 }; a.applyTheme() }
             })
-        row(look, "Background",
-            segmented(listOf("Plain", "Stars", "Moving", "Photo"), { listOf("plain", "stars", "moving", "photo").indexOf(Prefs.background) }) { i ->
-                if (i == 3) a.pickImage(MainActivity.REQ_BG) else { Prefs.background = listOf("plain", "stars", "moving")[i]; a.rebuild() }
+        val bgs = listOf("plain" to "Theme background", "stars" to "Stars", "moving" to "Moving stars", "city" to "City lights (live)",
+            "rain" to "Rain on glass (live)", "highway" to "Night highway (live)", "photo" to "Your photo…", "video" to "Your video…")
+        row(look, "Background (live ones move; the highway speeds up as you drive)",
+            dynButton({ bgs.firstOrNull { it.first == Prefs.background }?.second?.removeSuffix("…") ?: "Theme background" }) {
+                a.dialog().setTitle("Background").setItems(bgs.map { it.second }.toTypedArray()) { _, i ->
+                    when (val k = bgs[i].first) {
+                        "photo" -> a.pickImage(MainActivity.REQ_BG)
+                        "video" -> a.pickVideo()
+                        else -> { Prefs.background = k; a.rebuild(); a.show(MainActivity.Page.SOURCES) }
+                    }
+                }.setNegativeButton("Cancel", null).show()
             })
         row(look, "App icons (install an icon pack from the Play Store first)",
             dynButton({ if (Prefs.iconPack.isEmpty()) "Apps' own icons" else Apps.label(a, Prefs.iconPack) }) {
@@ -239,6 +247,10 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         row(drive, "Floating speedometer on top of ZLink and Maps",
             segmented(listOf("Off", "On"), { if (Prefs.bubble) 1 else 0 }) { i -> Prefs.bubble = i == 1; if (i == 1 && !Overlay.allowed(a)) a.openOverlaySettings() },
             dynButton({ if (Overlay.allowed(a)) "Allowed" else "Allow" }) { a.openOverlaySettings() })
+        row(drive, "Floating music player on top of ZLink and Maps",
+            segmented(listOf("Off", "On"), { if (Prefs.floatMusic) 1 else 0 }) { i -> Prefs.floatMusic = i == 1; if (i == 1 && !Overlay.allowed(a)) a.openOverlaySettings() })
+        row(drive, "Floating next turn on top of other apps (Google Maps / Waze on this unit)",
+            segmented(listOf("Off", "On"), { if (Prefs.floatTurn) 1 else 0 }) { i -> Prefs.floatTurn = i == 1; if (i == 1 && !Overlay.allowed(a)) a.openOverlaySettings() })
         row(drive, "When the car turns on, open", dynButton({
             when (val v = Prefs.autoApp) { "off", "" -> "Nothing"; "zlink" -> "ZLink" + (if (Apps.findZlink(a) == null) " (not found)" else ""); else -> Apps.label(a, v) }
         }) {
@@ -261,6 +273,29 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
             a.form("Currency symbol", listOf(Field("Symbol, e.g. ฿, $, AED", Prefs.currency, false)), null) { v, _ -> if (v[0].isNotEmpty()) Prefs.currency = v[0] }
         })
 
+        val comm = group("Phone & messages")
+        row(comm, "Phone: favourite contacts, recent calls and calling (uses the head unit's Bluetooth phone)",
+            dynButton({ if (PhoneHub.granted(a, android.Manifest.permission.READ_CALL_LOG)) "Allowed" else "Allow" }) { PhoneHub.askAccess(a) },
+            button("Add favourite").apply { setOnClickListener { PhoneHub.addFav(a) } })
+        row(comm, "Read new messages aloud (LINE, WhatsApp, SMS… on this head unit)",
+            segmented(listOf("Off", "While driving", "Always"), { Prefs.readMsgs }) { i -> Prefs.readMsgs = i })
+        row(comm, "Read the message itself (Off = only say who it is from)",
+            segmented(listOf("Off", "On"), { if (Prefs.readText) 1 else 0 }) { i -> Prefs.readText = i == 1 })
+        row(comm, "Automatic reply while driving (once per chat every 20 minutes, not to groups)",
+            segmented(listOf("Off", "On"), { if (Prefs.autoReply) 1 else 0 }) { i -> Prefs.autoReply = i == 1 })
+        row(comm, "Reply text", dynButton({ Prefs.autoReplyText.take(28) + if (Prefs.autoReplyText.length > 28) "…" else "" }) {
+            val e = android.widget.EditText(a).apply { setText(Prefs.autoReplyText); setSingleLine(false); maxLines = 3 }
+            val box = android.widget.FrameLayout(a).apply { setPadding(48, 24, 48, 0); addView(e) }
+            a.dialog().setTitle("Automatic reply").setView(box).setPositiveButton("Save") { _, _ ->
+                e.text.toString().trim().takeIf { it.isNotEmpty() }?.let { Prefs.autoReplyText = it }
+            }.setNegativeButton("Cancel", null).show()
+        })
+        row(comm, "Try the voice", button("Test").apply {
+            setOnClickListener { Speaker.say(a, "This is how new messages will sound while you drive.") }
+        })
+        comm.addView(a.label(13f, C.MUTED, F.regular, lines = 3).apply {
+            text = "Needs notification access (the same as Music). Calls and messages that happen inside ZLink stay in ZLink."
+        }, lp(MATCH, WRAP).apply { topMargin = S.i(4) })
         val sys = group("Connections")
         row(sys, "OBD2 adapter", button("Choose adapter").apply { setOnClickListener { a.chooseObd() } })
         row(sys, "Music & navigation info", button("Notification access").apply { setOnClickListener { a.openNotificationAccess() } })

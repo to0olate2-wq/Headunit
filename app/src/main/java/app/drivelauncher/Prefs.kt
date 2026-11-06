@@ -32,6 +32,20 @@ object Prefs {
     var roadWarn: Int get() = gi("roadWarn", -1); set(v) = si("roadWarn", v)
     /** Louder music at speed: 0 off, 1 low, 2 medium, 3 high. */
     var speedVolume: Int get() = gi("speedVolume", 0); set(v) = si("speedVolume", v)
+    /** Video wallpaper (content URI kept with a persistent permission). */
+    var videoUri: String get() = gs("videoUri", ""); set(v) = ss("videoUri", v)
+    /** Floating panel over other apps: mini music player and next turn (the speedometer is [bubble]). */
+    var floatMusic: Boolean get() = gb("floatMusic", false); set(v) = sb("floatMusic", v)
+    var floatTurn: Boolean get() = gb("floatTurn", false); set(v) = sb("floatTurn", v)
+    /** Favourite contacts (JSON [{name, number}]). */
+    var phoneFavs: String get() = gs("phoneFavs", "[]"); set(v) = ss("phoneFavs", v)
+    /** Read new messages aloud: 0 off, 1 while driving, 2 always. */
+    var readMsgs: Int get() = gi("readMsgs", 1); set(v) = si("readMsgs", v)
+    /** Read the message text too (not only who sent it). */
+    var readText: Boolean get() = gb("readText", true); set(v) = sb("readText", v)
+    /** Automatic reply while driving (off until the owner turns it on). */
+    var autoReply: Boolean get() = gb("autoReply", false); set(v) = sb("autoReply", v)
+    var autoReplyText: String get() = gs("autoReplyText", "I'm driving right now, I'll reply soon."); set(v) = ss("autoReplyText", v)
     /** Icon pack package ("" = the apps' own icons). */
     var iconPack: String get() = gs("iconPack", ""); set(v) = ss("iconPack", v)
     /** Fuel tank size in litres (a 2015 Sonata has 70 L). */

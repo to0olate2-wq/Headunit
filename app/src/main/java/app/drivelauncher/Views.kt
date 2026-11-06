@@ -686,6 +686,11 @@ class BackgroundView(ctx: Context, private val kind: String, private val photo: 
         val now = System.currentTimeMillis()
         if (t0 == 0L) t0 = now
         var animate = false
+        if (kind in LiveScenes.KINDS) {
+            LiveScenes.draw(c, kind, w, h, now - t0, p)
+            if (Motion.on && isShown) postInvalidateDelayed(50L)
+            return
+        }
         if (kind != "photo") when {
             Skin.glass -> { aurora(c, w, h, if (Motion.on) ((now - t0) % 40_000L) / 40_000f else 0f); animate = Motion.on }
             Skin.sport -> carbon(c, w, h)
@@ -758,4 +763,190 @@ class CompassView(ctx: Context) : View(ctx) {
         p.color = C.accent
         c.drawPath(path, p)
     }
+}
+
+/**
+ * Live wallpapers drawn in code (no video files needed): city lights, rain on glass, night highway.
+ * [ms] = time since start; with motion effects off they show a still frame.
+ */
+object LiveScenes {
+    val KINDS = setOf("city", "rain", "highway")
+    private val rnd = java.util.Random(11)
+    private val bokeh = Array(46) { floatArrayOf(rnd.nextFloat(), rnd.nextFloat(), 0.02f + rnd.nextFloat() * 0.07f, rnd.nextFloat(), rnd.nextFloat()) }
+    private val drops = Array(140) { floatArrayOf(rnd.nextFloat(), rnd.nextFloat(), 0.6f + rnd.nextFloat() * 2.4f, rnd.nextFloat()) }
+    private val runs = Array(9) { floatArrayOf(rnd.nextFloat(), rnd.nextFloat(), 0.04f + rnd.nextFloat() * 0.08f, 1.5f + rnd.nextFloat() * 2f) }
+    private val warm = intArrayOf(0xFFFFB45C.toInt(), 0xFFFF7A45.toInt(), 0xFFFFD58A.toInt(), 0xFFFF5A6A.toInt())
+    private val cool = intArrayOf(0xFF6CB8FF.toInt(), 0xFF9B7CFF.toInt(), 0xFF5AE0D0.toInt(), 0xFFFFFFFF.toInt())
+    private var lanePhase = 0f
+    private var lightPhase = 0f
+    private var lastMs = 0L
+    private val path = Path()
+
+    private fun t(ms: Long) = if (Motion.on) ms / 1000f else 0f
+
+    fun draw(c: Canvas, kind: String, w: Float, h: Float, ms: Long, p: Paint) {
+        p.shader = null; p.style = Paint.Style.FILL
+        when (kind) {
+            "city" -> city(c, w, h, t(ms), p, 1f)
+            "rain" -> { city(c, w, h, t(ms) * 0.3f, p, 0.75f); rain(c, w, h, t(ms), p) }
+            "highway" -> highway(c, w, h, ms, p)
+        }
+        p.shader = null; p.style = Paint.Style.FILL
+    }
+
+    /** Out-of-focus city lights drifting slowly. */
+    private fun city(c: Canvas, w: Float, h: Float, s: Float, p: Paint, dim: Float) {
+        p.color = 0xFF000000.toInt()
+        p.shader = LinearGradient(0f, 0f, 0f, h, intArrayOf(0xFF05060C.toInt(), 0xFF0B0E1C.toInt(), 0xFF140C14.toInt()), null, Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, w, h, p)
+        for ((i, b) in bokeh.withIndex()) {
+            val x = ((b[0] + s * 0.004f * (0.5f + b[3])) % 1.1f) * w - 0.05f * w
+            val y = (b[1] * 0.85f + 0.12f + 0.015f * kotlin.math.sin(s * 0.3f + i)) * h
+            val r = b[2] * min(w, h) * 1.4f
+            val col = if (b[4] < 0.6f) warm[i % warm.size] else cool[i % cool.size]
+            val a = (0.10f + 0.22f * b[3]) * dim * (0.85f + 0.15f * kotlin.math.sin(s * 0.8f + i * 1.7f))
+            p.color = 0xFF000000.toInt()
+            p.shader = RadialGradient(x, y, r, intArrayOf(withAlpha(col, a), withAlpha(col, a * 0.85f), withAlpha(col, 0f)), floatArrayOf(0f, 0.7f, 1f), Shader.TileMode.CLAMP)
+            c.drawCircle(x, y, r, p)
+        }
+        p.shader = null
+    }
+
+    /** Water drops on the windscreen; a few run down leaving a trail. */
+    private fun rain(c: Canvas, w: Float, h: Float, s: Float, p: Paint) {
+        p.color = 0x33000000
+        c.drawRect(0f, 0f, w, h, p)
+        val k = min(w, h) / 720f
+        for (d in drops) {
+            val x = d[0] * w; val y = d[1] * h; val r = d[2] * 3f * k
+            p.color = 0x2EFFFFFF; c.drawCircle(x, y, r, p)
+            p.color = 0x59FFFFFF; c.drawCircle(x - r * 0.3f, y - r * 0.35f, r * 0.35f, p)
+        }
+        for (rn in runs) {
+            val speed = rn[3] * 0.04f
+            val prog = ((rn[1] + s * speed) % 1.2f) - 0.1f
+            val x = rn[0] * w + kotlin.math.sin(prog * 18f + rn[0] * 9f) * 3f * k
+            val y = prog * h
+            val r = rn[2] * 60f * k
+            p.color = 0xFF000000.toInt()
+            p.shader = LinearGradient(x, y - r * 6f, x, y, 0x00FFFFFF, 0x26FFFFFF, Shader.TileMode.CLAMP)
+            c.drawRect(x - r * 0.25f, y - r * 6f, x + r * 0.25f, y, p)
+            p.shader = null
+            p.color = 0x40FFFFFF; c.drawCircle(x, y, r * 0.6f, p)
+            p.color = 0x80FFFFFF.toInt(); c.drawCircle(x - r * 0.2f, y - r * 0.25f, r * 0.18f, p)
+        }
+    }
+
+    /** Driving at night: lane markings and street lights rush past (faster when the car is faster). */
+    private fun highway(c: Canvas, w: Float, h: Float, ms: Long, p: Paint) {
+        if (Motion.on) {
+            val dt = if (lastMs == 0L) 0f else ((ms - lastMs) / 1000f).coerceIn(0f, 0.2f)
+            val kmh = if (Gps.fresh) Gps.speedKmh else 0f
+            val v = 0.25f + kmh * 0.02f
+            lanePhase = (lanePhase + dt * v) % 1f
+            lightPhase = (lightPhase + dt * v * 0.5f) % 1f
+        }
+        lastMs = ms
+        val hy = h * 0.46f
+        val vx = w * 0.5f
+        p.color = 0xFF000000.toInt()
+        p.shader = LinearGradient(0f, 0f, 0f, hy, intArrayOf(0xFF03040A.toInt(), 0xFF0B1024.toInt(), 0xFF2A1A2E.toInt()), null, Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, w, hy, p)
+        // city glow on the horizon
+        p.shader = RadialGradient(vx, hy, w * 0.5f, intArrayOf(0x66FF9A5C, 0x22FF6A5C, 0x00000000), null, Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, w, hy, p)
+        p.shader = LinearGradient(0f, hy, 0f, h, 0xFF0A0B10.toInt(), 0xFF020203.toInt(), Shader.TileMode.CLAMP)
+        c.drawRect(0f, hy, w, h, p)
+        // road surface
+        path.reset(); path.moveTo(vx - w * 0.02f, hy); path.lineTo(vx + w * 0.02f, hy); path.lineTo(w * 1.05f, h); path.lineTo(-w * 0.05f, h); path.close()
+        p.shader = LinearGradient(0f, hy, 0f, h, 0xFF15161C.toInt(), 0xFF0B0B0F.toInt(), Shader.TileMode.CLAMP)
+        c.drawPath(path, p)
+        p.shader = null
+        // edge lines
+        p.style = Paint.Style.STROKE; p.strokeWidth = max(1f, h * 0.004f); p.color = 0x66FFFFFF
+        c.drawLine(vx - w * 0.018f, hy, -w * 0.03f, h, p); c.drawLine(vx + w * 0.018f, hy, w * 1.03f, h, p)
+        p.style = Paint.Style.FILL
+        // centre dashes coming towards the viewer
+        val n = 10
+        for (k in 0 until n) {
+            val d0 = ((k + lanePhase) / n); val d1 = d0 + 0.45f / n
+            val y0 = hy + (h - hy) * d0 * d0; val y1 = hy + (h - hy) * min(1f, d1 * d1)
+            val hw0 = w * 0.002f + w * 0.012f * d0; val hw1 = w * 0.002f + w * 0.012f * min(1f, d1)
+            path.reset(); path.moveTo(vx - hw0, y0); path.lineTo(vx + hw0, y0); path.lineTo(vx + hw1, y1); path.lineTo(vx - hw1, y1); path.close()
+            p.color = withAlpha(0xFFFFE9B0.toInt(), 0.25f + 0.6f * d0)
+            c.drawPath(path, p)
+        }
+        // street lights on both sides
+        val m = 7
+        for (k in 0 until m) {
+            val d = ((k + lightPhase) / m)
+            val e = d * d
+            val y = hy - (h * 0.32f) * e
+            for (side in listOf(-1f, 1f)) {
+                val x = vx + side * (w * 0.03f + w * 0.62f * e)
+                val r = w * (0.006f + 0.05f * e)
+                p.color = 0xFF000000.toInt()
+                p.shader = RadialGradient(x, y, r * 3f, intArrayOf(withAlpha(0xFFFFB45C.toInt(), 0.55f * (0.3f + d)), withAlpha(0xFFFF8A3C.toInt(), 0.18f * d), 0), null, Shader.TileMode.CLAMP)
+                c.drawCircle(x, y, r * 3f, p)
+                p.shader = null
+                p.color = withAlpha(0xFFFFF1D6.toInt(), 0.5f + 0.5f * d)
+                c.drawCircle(x, y, r * 0.35f, p)
+                p.style = Paint.Style.STROKE; p.strokeWidth = max(1f, r * 0.12f); p.color = withAlpha(0xFF3A3D45.toInt(), 0.7f * d)
+                c.drawLine(x, y + r * 0.3f, x, hy + (h - hy) * e * 0.9f, p)
+                p.style = Paint.Style.FILL
+            }
+        }
+    }
+}
+
+/** The owner's own video as a muted, looping wallpaper (scaled to cover the screen). */
+class VideoBackground(ctx: Context, private val uri: android.net.Uri) : android.view.TextureView(ctx), android.view.TextureView.SurfaceTextureListener {
+    private var mp: android.media.MediaPlayer? = null
+    private var surface: android.view.Surface? = null
+
+    init { surfaceTextureListener = this; isOpaque = false }
+
+    override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, width: Int, height: Int) {
+        val s = android.view.Surface(st)
+        surface = s
+        try {
+            val m = android.media.MediaPlayer()
+            m.setDataSource(context, uri)
+            m.setSurface(s)
+            m.isLooping = true
+            m.setVolume(0f, 0f)
+            m.setOnVideoSizeChangedListener { _, vw, vh -> cover(vw, vh) }
+            m.setOnPreparedListener { it.start() }
+            m.setOnErrorListener { _, what, extra -> Diag.log("video wallpaper error $what/$extra"); true }
+            m.prepareAsync()
+            mp = m
+        } catch (e: Exception) {
+            Diag.log("video wallpaper: ${e.javaClass.simpleName} ${e.message}")
+        }
+    }
+
+    private fun cover(vw: Int, vh: Int) {
+        if (vw <= 0 || vh <= 0 || width <= 0 || height <= 0) return
+        val sx = width.toFloat() / vw; val sy = height.toFloat() / vh
+        val s = max(sx, sy)
+        val m = Matrix()
+        m.setScale(vw * s / width, vh * s / height, width / 2f, height / 2f)
+        setTransform(m)
+    }
+
+    fun pause() { try { mp?.takeIf { it.isPlaying }?.pause() } catch (_: Exception) {} }
+    fun resume() { try { mp?.start() } catch (_: Exception) {} }
+
+    override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, width: Int, height: Int) {
+        mp?.let { cover(it.videoWidth, it.videoHeight) }
+    }
+
+    override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean {
+        try { mp?.release() } catch (_: Exception) {}
+        mp = null
+        surface?.release(); surface = null
+        return true
+    }
+
+    override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
 }

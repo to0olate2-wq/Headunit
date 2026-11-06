@@ -204,6 +204,7 @@ class MediaListenerService : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         val p = sbn?.packageName ?: return
+        PhoneHub.onRemoved(sbn.key)
         NavHub.onRemoved(p)
         MediaHub.onRemoved(p)
     }
@@ -224,7 +225,11 @@ class MediaListenerService : NotificationListenerService() {
                 }.joinToString(" ")
                 Diag.note(sbn.packageName, title, text, flags)
             }
-            if (!NavHub.onPosted(this, sbn)) MediaHub.onNotification(this, sbn)
+            if (sbn.packageName == packageName) return
+            if (NavHub.onPosted(this, sbn)) return
+            if (PhoneHub.onPosted(sbn)) return
+            if (MessageHub.onPosted(this, sbn)) return
+            MediaHub.onNotification(this, sbn)
         } catch (e: Exception) {
             Diag.log("notification handling: ${e.javaClass.simpleName} ${e.message}")
         }

@@ -439,7 +439,7 @@ object HomePages {
     val CARD_TYPES = linkedMapOf(
         "hero" to "Drive hero (speed, clock, car)", "speed" to "Speed", "rpm" to "RPM dial", "trip" to "Trip computer",
         "nav" to "Next turn", "road" to "Road & next turn", "gauges" to "Engine gauges", "stats" to "Readouts (4 numbers)",
-        "places" to "Quick destinations", "map" to "Map", "media" to "Music", "clock" to "Clock & weather", "compass" to "Compass",
+        "places" to "Quick destinations", "phone" to "Phone", "messages" to "Messages", "map" to "Map", "media" to "Music", "clock" to "Clock & weather", "compass" to "Compass",
         "car" to "Car care", "logo" to "Your logo",
     )
     val LAYOUTS = linkedMapOf(
@@ -521,6 +521,8 @@ class HomePage(private val a: MainActivity, val index: Int, portrait: Boolean, c
                     type == "nav" -> NavCard(a)
                     type == "stats" -> StatsCard(a)
                     type == "places" -> PlacesCard(a)
+                    type == "phone" -> PhoneCard(a)
+                    type == "messages" -> MessagesCard(a)
                     type == "trip" -> TripCard(a)
                     type == "road" -> RoadCard(a)
                     type == "gauges" -> GaugesCard(a)

@@ -146,7 +146,11 @@ open class MainActivity : Activity() {
         root.setBackgroundColor(C.BG)
         val bgKind = Prefs.background
         val photo = if (bgKind == "photo") try { BitmapFactory.decodeFile(File(filesDir, "bg.jpg").path) } catch (_: Exception) { null } else null
-        root.addView(BackgroundView(this, bgKind, photo), flp(MATCH, MATCH))
+        val video = Prefs.videoUri.takeIf { bgKind == "video" && it.isNotEmpty() }?.let { try { Uri.parse(it) } catch (_: Exception) { null } }
+        videoBg = video?.let { VideoBackground(this, it) }
+        root.addView(videoBg ?: BackgroundView(this, if (bgKind == "video") "plain" else bgKind, photo), flp(MATCH, MATCH))
+        bannerBox = FrameLayout(this)
+        Banners.attach(this)
         val col = vbox(12f)
         col.pad(if (dashMode) 8f else 16f)
         val host = FrameLayout(this)
@@ -173,6 +177,7 @@ open class MainActivity : Activity() {
             dock = dk
         }
         root.addView(col, flp(MATCH, MATCH))
+        if (!dashMode) bannerBox?.let { root.addView(it, flp(MATCH, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL)) }
         buildSaver()
         show(page)
         Diag.log("layout ${w}x$h scale ${fmt("%.2f", S.u)} ${if (portrait) "portrait" else "landscape"}, ${pages.size} home pages")
@@ -206,6 +211,10 @@ open class MainActivity : Activity() {
         Page.APPS -> apps?.view
     }
 
+    private var videoBg: VideoBackground? = null
+    /** Top banners (calls, messages) sit here above every page. */
+    var bannerBox: FrameLayout? = null
+        private set
     private var shownView: View? = null
     private var slideDir = 1
 
@@ -254,6 +263,7 @@ open class MainActivity : Activity() {
     }
 
     private fun update() {
+        Banners.update(this)
         try {
             when (page) {
                 Page.HOME -> homes.getOrNull(homeIdx)?.update()
@@ -321,6 +331,7 @@ open class MainActivity : Activity() {
         resumed = true
         Overlay.launcherVisible = true
         Overlay.update(this)
+        videoBg?.resume()
         MediaHub.tryAttach()
         Gps.start(this)
         DriveService.start(this)
@@ -336,6 +347,7 @@ open class MainActivity : Activity() {
 
     override fun onPause() {
         super.onPause()
+        videoBg?.pause()
         resumed = false
         Overlay.launcherVisible = false
         handler.removeCallbacks(tick)
@@ -493,6 +505,16 @@ open class MainActivity : Activity() {
 
     // ---- pictures
 
+    /** Pick a video for the wallpaper (kept by reference, not copied). */
+    fun pickVideo() {
+        try {
+            @Suppress("DEPRECATION")
+            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).setType("video/*").addCategory(Intent.CATEGORY_OPENABLE), REQ_VIDEO)
+        } catch (_: Exception) {
+            Toast.makeText(this, "No file app found to choose a video", Toast.LENGTH_LONG).show()
+        }
+    }
+
     fun pickImage(req: Int) {
         try {
             @Suppress("DEPRECATION")
@@ -522,6 +544,17 @@ open class MainActivity : Activity() {
                 } catch (e: Exception) {
                     Toast.makeText(this, "Couldn't use that picture (${e.message})", Toast.LENGTH_LONG).show()
                 }
+            }
+            REQ_CONTACT -> {
+                if (resultCode == RESULT_OK) data?.data?.let { PhoneHub.onPicked(this, it) }
+            }
+            REQ_VIDEO -> {
+                val uri = data?.data ?: return
+                if (resultCode != RESULT_OK) return
+                try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
+                Prefs.videoUri = uri.toString()
+                Prefs.background = "video"
+                rebuild()
             }
             REQ_CAR -> {
                 val uri = data?.data ?: return
@@ -664,6 +697,7 @@ open class MainActivity : Activity() {
         Gps.start(this)
         DriveService.start(this)
         if (requestCode == 2 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) chooseObd()
+        if (requestCode == REQ_PHONE) rebuild()
     }
 
     private fun tryStart(vararg intents: Intent): Boolean {
@@ -757,6 +791,9 @@ open class MainActivity : Activity() {
         const val REQ_BIND = 13
         const val REQ_CONFIG = 14
         const val REQ_CAR = 15
+        const val REQ_VIDEO = 16
+        const val REQ_PHONE = 17
+        const val REQ_CONTACT = 18
     }
 }
 

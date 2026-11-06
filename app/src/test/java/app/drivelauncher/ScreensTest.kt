@@ -104,6 +104,16 @@ class ScreensTest {
         FileOutputStream(File(dir, "$name.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
+    /** Draw a view that is not in a window (the floating pill) into a PNG. */
+    private fun saveView(v: View, name: String) {
+        v.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+        v.layout(0, 0, v.measuredWidth, v.measuredHeight)
+        val bmp = Bitmap.createBitmap(v.measuredWidth + 40, v.measuredHeight + 40, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp); c.drawColor(0xFF39424E.toInt()); c.translate(20f, 20f); v.draw(c)
+        val dir = File("build/screens").apply { mkdirs() }
+        FileOutputStream(File(dir, "$name.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
     private fun findScroll(v: View): ScrollView? {
         if (v is ScrollView && v.isShown) return v
         if (v is ViewGroup) for (i in 0 until v.childCount) findScroll(v.getChildAt(i))?.let { return it }
@@ -159,6 +169,28 @@ class ScreensTest {
             act.showHome(0); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-glass-stars-home1")
             Prefs.background = "plain"
         }
+        // ---- phone, messages, banners, live wallpapers, floating pill
+        Prefs.phoneFavs = """[{"name":"Mom","number":"0812345678"},{"name":"Nok","number":"0898765432"},{"name":"Office","number":"021234567"}]"""
+        MessageHub.addForTest(MessageHub.Msg("jp.naver.line.android", "LINE", "Nok", "Are you close? We're at the cafe already.",
+            System.currentTimeMillis() - 120_000, "k1", null, false))
+        MessageHub.addForTest(MessageHub.Msg("com.whatsapp", "WhatsApp", "Office", "The meeting moved to 3 PM.",
+            System.currentTimeMillis() - 60_000, "k2", null, false))
+        Prefs.pages = """[{"layout":"grid","cards":["phone","messages","clock","places"]}]"""
+        act.rebuild()
+        act.showHome(0); save(act, "$name-glass-comms")
+        PhoneHub.setCallForTest("Mom")
+        act.showHome(0); save(act, "$name-glass-call")
+        PhoneHub.setCallForTest(null)
+        if (full) {
+            for (bg in listOf("city", "rain", "highway")) {
+                Prefs.background = bg
+                Prefs.pages = glassJson
+                act.rebuild(); act.showHome(0); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-glass-live-$bg")
+            }
+            Prefs.background = "plain"
+            saveView(FloatPanel(act, 1f).apply { Prefs.bubble = true; update(true, true, true) }, "$name-floating-pill")
+        }
+        Prefs.pages = glassJson
         // ---- Carbon Sport (standard pages of the theme)
         Prefs.skin = Skin.SPORT
         Prefs.pages = ""
