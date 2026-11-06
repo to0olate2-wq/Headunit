@@ -4,7 +4,7 @@ A home-screen launcher for Android car head units (made for a TS10S, UIS7862S, 1
 Dashboard with speed, trip, next turn, engine gauges, map and now-playing music, in three themes:
 
 - **Aurora Glass** (default): frosted-glass cards on a softly glowing background, very large thin numbers,
-  a lit-up car picture whose wheels turn while you drive, colourful app tiles, music card tinted by the album art.
+  a premium car picture (driving look while you drive, showroom look when parked), colourful app tiles, music card tinted by the album art.
 - **Carbon Sport:** carbon-fibre background, real-looking RPM and speed dials with needles and a red line,
   angled metal panels, red accent.
 - **Neon Night:** glowing two-colour outlines, a moving neon grid floor, futuristic numbers.
@@ -34,7 +34,8 @@ Settings → Look → **Theme**. Each theme keeps its own accent colour and home
   gauges, readouts, map, music, clock & weather, compass, car care, your logo, any Android widget), change the page
   layout or add pages.
 - **Motion effects:** pages slide in, the background glows slowly, dials move smoothly (can be turned off).
-- **Your car:** a 3D-rendered saloon in your paint colour (wheels turn while driving), or your own car photo.
+- **Your car:** an original 3D-rendered premium saloon in your paint colour. Driving: side view with lights on,
+  turning wheels and moving road. Parked: front three-quarter showroom view with a floor reflection. Or your own car photo.
 - **Road speed limit sign** from OpenStreetMap (Google Maps and Waze don't share theirs), with an optional beep.
 - **Quick destinations:** Home, Work, saved places, nearest fuel / coffee / food / parking (opens Google Maps or Waze).
 - **Speed-based volume**, **fuel range** (OBD2 fuel level or the fuel log), **drive score** with tips for each trip.
@@ -42,7 +43,7 @@ Settings → Look → **Theme**. Each theme keeps its own accent colour and home
 - **Floating pill over ZLink and Maps:** speedometer, next turn and a mini music player (each can be turned on separately).
 - **Live wallpapers** (city lights, rain on glass, night highway that speeds up as you drive) or **your own video**.
 - **Phone card:** favourite contacts, recent calls, call banner with answer / decline (from the unit's Bluetooth phone app).
-- **Messages:** banner and card for new chat messages on the unit, read aloud (Thai voice if installed), optional
+- **Messages:** banner and card for new chat messages on the unit, read aloud with the unit's voice, optional
   automatic "I'm driving" reply through the app's own reply button. Calls and messages inside ZLink stay in ZLink.
 - **Day/night look** following sunrise and sunset, with optional automatic brightness; plain, starry or photo backgrounds.
 - **Car page:** automatic trip history with routes, fuel log and costs, service reminders, check-engine codes

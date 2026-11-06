@@ -63,9 +63,9 @@ object PhoneHub {
     @Volatile var version = 0
         private set
 
-    private val ANSWER = listOf("answer", "accept", "pick up", "รับสาย", "رد", "接听")
-    private val DECLINE = listOf("decline", "reject", "ignore", "dismiss", "ปฏิเสธ", "رفض", "拒绝")
-    private val HANGUP = listOf("hang up", "end call", "end", "วางสาย", "إنهاء", "挂断")
+    private val ANSWER = listOf("answer", "accept", "pick up")
+    private val DECLINE = listOf("decline", "reject", "ignore", "dismiss")
+    private val HANGUP = listOf("hang up", "end call", "end")
 
     /** @return true if this was a call notification */
     fun onPosted(sbn: StatusBarNotification): Boolean {
@@ -306,7 +306,7 @@ object MessageHub {
     }
 }
 
-/** Reads text aloud; music is turned down while it speaks. Thai text uses a Thai voice when the unit has one. */
+/** Reads text aloud with the head unit's normal voice; music is turned down while it speaks. */
 object Speaker {
     private var tts: TextToSpeech? = null
     private var ready = false
@@ -338,9 +338,6 @@ object Speaker {
     private fun speak(ctx: Context, text: String) {
         val t = tts ?: return
         try {
-            val thai = text.any { it in '฀'..'๿' }
-            val loc = if (thai) Locale("th", "TH") else Locale.getDefault()
-            if (t.isLanguageAvailable(loc) >= TextToSpeech.LANG_AVAILABLE) t.language = loc
             val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
             t.setAudioAttributes(attrs)
@@ -455,7 +452,7 @@ object Banners {
     }
 
     fun quickReply(a: MainActivity, m: MessageHub.Msg) {
-        val opts = listOf(Prefs.autoReplyText, "On my way.", "OK 👍", "I'll call you back.", "ขับรถอยู่ เดี๋ยวตอบนะ")
+        val opts = listOf(Prefs.autoReplyText, "On my way.", "OK 👍", "I'll call you back.")
         a.dialog().setTitle("Reply to ${m.sender}").setItems(opts.toTypedArray()) { _, i ->
             Toast.makeText(a, if (MessageHub.reply(a, m, opts[i])) "Sent" else "This app doesn't allow replies from here", Toast.LENGTH_SHORT).show()
         }.setNegativeButton("Cancel", null).show()

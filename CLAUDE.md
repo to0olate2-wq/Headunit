@@ -42,9 +42,14 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
   numbers). Shapes: `cardBg()` → `GlassBg` / `ChamferBg` / rounded; `Skin.tile()`, `Skin.gradient()`, `C.FLOAT` for
   chips over maps. `Motion.on` (pref `motion`; tests set `Motion.allowed = false`): page slide-in, aurora drift,
   dial needle easing, hero wheel spin.
-- `CarArt` (in `PremiumCards.kt`): 3D-rendered original saloon, `assets/car/car_<colour>.webp` + `wheel.webp` (rotated
-  at run time), made by `tools/car3d` (three.js + headless Chrome); frame/wheel metres must match `car.js`. Owner photo:
-  `files/car.png` (`Prefs.carPhoto`), cut-outs are trimmed, normal photos get faded edges. Never ship real-brand cars.
+- `CarArt` (in `PremiumCards.kt`): original 3D-rendered premium saloon made by `tools/car3d` (three.js `premium.js` +
+  headless Chrome, `compose.py` adds the floor reflection). Two looks picked by `CarArt.Mode` (driving after 2 s above
+  8 km/h, parked after 8 s below 3 km/h, 0.7 s crossfade; `Mode.force` for tests): **driving** = `side_<colour>.webp`
+  + `wheel.webp` (rotated at run time), headlight beam, tail glow, moving road and light streaks; **parked** =
+  `parked_<colour>.webp` (front three-quarter, reflection) on an accent spotlight. Frame/wheel metres and
+  `PARK_CONTACT` must match `premium.js` / `compose.py`. Owner photo: `files/car.png` (`Prefs.carPhoto`), cut-outs
+  are trimmed, normal photos get faded edges. Never ship real-brand cars. In three.js r170, a material's
+  `envMapIntensity` only counts when the material has its own `envMap` (premium.js sets it in `shot()`).
 - `Roads.kt`: `RoadLimit` (Overpass ways in a ~2 km box, matched locally per fix; numeric `maxspeed` only), `SpeedSign`,
   `SpeedSignView`, `SpeedVolume`. `Places.kt`: quick destinations (Maps/Waze intents). `Car.kt`: `DriveScore`, `FuelRange`.
   `AppsPage.kt`: drawer (search, sort, hidden, folders in Prefs `hiddenApps`/`folders`/`appUses`), `IconPack` in `Apps.kt`.

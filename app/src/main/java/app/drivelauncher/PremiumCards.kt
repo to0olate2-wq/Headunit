@@ -186,20 +186,24 @@ private object VectorCar {
 
 
 /**
- * The car on the home screen: a 3D-rendered saloon (original design, made with tools/car3d) in the owner's
- * paint colour with wheels that turn while driving, or the owner's own photo of their car.
+ * The car on the home screen: an original 3D-rendered premium saloon (made with tools/car3d/premium.js) in the
+ * owner's paint colour, or the owner's own photo of their car.
+ * Two looks: **driving** (side view, lights on, wheels turning, road and light streaks moving) and **parked**
+ * (front three-quarter "showroom" view with a floor reflection and a spotlight). [Mode] picks one from the speed.
  */
 object CarArt {
-    // picture frame and wheel positions in metres (must match tools/car3d/car.js)
-    private const val X0 = -0.04f
-    private const val X1 = 4.90f
+    // side picture frame and wheel positions in metres (must match FRAME, WR, WF, WY, TIRE_R in premium.js)
+    private const val X0 = -0.05f
+    private const val X1 = 5.03f
     private const val Y0 = -0.02f
-    private const val Y1 = 1.56f
-    private val WHEELS = floatArrayOf(0.98f, 3.86f)
-    private const val WY = 0.345f
-    private const val WHEEL_HALF = 0.349f
-    private val HEAD = floatArrayOf(4.80f, 0.80f)
-    private val TAIL = floatArrayOf(0.07f, 0.97f)
+    private const val Y1 = 1.50f
+    private val WHEELS = floatArrayOf(0.98f, 4.03f)
+    private const val WY = 0.37f
+    private const val WHEEL_HALF = 0.374f
+    private val HEAD = floatArrayOf(4.97f, 0.66f)
+    private val TAIL = floatArrayOf(0.03f, 0.935f)
+    /** Parked picture: where the tyres touch the floor, as a share of the picture height (tools/car3d/compose.py). */
+    private const val PARK_CONTACT = 0.90f
 
     /** Paint colours: key to (name, swatch colour). */
     val COLORS = linkedMapOf(
@@ -209,9 +213,52 @@ object CarArt {
         "bronze" to ("Bronze" to 0xFF6E4B2F.toInt()), "green" to ("Green" to 0xFF1D3A30.toInt()),
     )
 
+    /**
+     * Driving or parked. Starts in whatever the speed says; then switches to driving after 2 s above 8 km/h and back
+     * to parked after 8 s below 3 km/h (or with no speed), so traffic lights don't flip it. [force] is for tests.
+     */
+    object Mode {
+        var force: Boolean? = null
+        private var driving: Boolean? = null
+        private var since = 0L
+        private var mix = -1f
+        private var mixAt = 0L
+
+        fun driving(): Boolean = force ?: (driving ?: false)
+
+        /** Feed the current speed (km/h, null = unknown). Returns true when the look changed. */
+        fun track(kmh: Float?): Boolean {
+            if (force != null) return false
+            val v = kmh ?: 0f
+            val d = driving
+            if (d == null) { driving = v > 8f; return true }
+            val keep = if (d) v >= 3f else v <= 8f
+            if (keep) { since = 0L; return false }
+            val now = SystemClock.elapsedRealtime()
+            if (since == 0L) since = now
+            if (now - since < (if (d) 8000L else 2000L)) return false
+            driving = !d; since = 0L
+            return true
+        }
+
+        /** 0 = parked, 1 = driving; slides over 0.7 s when animations are on. */
+        fun mix(): Float {
+            val target = if (driving()) 1f else 0f
+            val now = SystemClock.uptimeMillis()
+            if (mix < 0f || !Motion.on) { mix = target; mixAt = now; return mix }
+            val dt = ((now - mixAt) / 700f).coerceIn(0f, 0.2f)
+            mixAt = now
+            mix = if (mix < target) min(target, mix + dt) else max(target, mix - dt)
+            return mix
+        }
+
+        fun settled() = mix == (if (driving()) 1f else 0f)
+    }
+
     private var app: android.content.Context? = null
     private var bodyKey = ""
-    private var body: android.graphics.Bitmap? = null
+    private var side: android.graphics.Bitmap? = null
+    private var parked: android.graphics.Bitmap? = null
     private var wheel: android.graphics.Bitmap? = null
     private var photoKey = -1L
     private var photo: android.graphics.Bitmap? = null
@@ -219,12 +266,13 @@ object CarArt {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rf = RectF()
     private val dash = Path()
+    private val beam = Path()
     private val clear = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_OUT)
 
     fun init(ctx: android.content.Context) { app = ctx.applicationContext }
 
     /** Forget loaded pictures (after the colour or photo changed). */
-    fun reset() { bodyKey = ""; body = null; photoKey = -1L; photo = null }
+    fun reset() { bodyKey = ""; side = null; parked = null; photoKey = -1L; photo = null }
 
     fun photoFile(ctx: android.content.Context) = java.io.File(ctx.filesDir, "car.png")
 
@@ -232,14 +280,14 @@ object CarArt {
         app?.assets?.open(name)?.use { android.graphics.BitmapFactory.decodeStream(it) }
     } catch (e: Exception) { Diag.log("car picture $name: ${e.message}"); null }
 
-    private fun bodyBitmap(): android.graphics.Bitmap? {
+    private fun load() {
         val k = Prefs.carColor
-        if (k != bodyKey) {
-            bodyKey = k
-            body = asset("car/car_${if (k in COLORS) k else "silver"}.webp")
-            if (wheel == null) wheel = asset("car/wheel.webp")
-        }
-        return body
+        if (k == bodyKey) return
+        bodyKey = k
+        val c = if (k in COLORS) k else "silver"
+        side = asset("car/side_$c.webp")
+        parked = asset("car/parked_$c.webp")
+        if (wheel == null) wheel = asset("car/wheel.webp")
     }
 
     private fun photoBitmap(): android.graphics.Bitmap? {
@@ -254,28 +302,65 @@ object CarArt {
         return photo
     }
 
-    fun draw(c: Canvas, cx: Float, bottom: Float, maxW: Float, maxH: Float, wheelDeg: Float, dashPhase: Float, moving: Boolean) {
+    /**
+     * Draw the car with its floor line at [bottom], centred on [cx], as big as fits in maxW x maxH.
+     * [mix]: 0 = parked look, 1 = driving look (in between while changing).
+     */
+    fun draw(c: Canvas, cx: Float, bottom: Float, maxW: Float, maxH: Float, wheelDeg: Float, dashPhase: Float, moving: Boolean, mix: Float = 1f) {
         if (maxW <= 0f || maxH <= 0f) return
         val ph = photoBitmap()
-        if (ph != null) { drawPhoto(c, ph, cx, bottom, maxW, maxH); return }
-        val b = bodyBitmap()
-        val w = wheel
-        if (b == null || w == null) { VectorCar.draw(c, cx, bottom, maxW, maxH, wheelDeg, dashPhase, moving); return }
+        if (ph != null) { drawPhoto(c, ph, cx, bottom, maxW, maxH, dashPhase, moving); return }
+        load()
+        val sd = side; val pk = parked; val w = wheel
+        if (sd == null || pk == null || w == null) { VectorCar.draw(c, cx, bottom, maxW, maxH, wheelDeg, dashPhase, moving); return }
+        if (mix < 1f) layer(c, cx, bottom, maxW, maxH, 1f - mix) { drawParked(c, pk, cx, bottom, maxW, maxH) }
+        if (mix > 0f) layer(c, cx, bottom, maxW, maxH, mix) { drawDriving(c, sd, w, cx, bottom, maxW, maxH, wheelDeg, dashPhase, moving) }
+    }
+
+    private inline fun layer(c: Canvas, cx: Float, bottom: Float, maxW: Float, maxH: Float, a: Float, block: () -> Unit) {
+        if (a >= 0.999f) { block(); return }
+        val n = c.saveLayerAlpha(cx - maxW, bottom - maxH * 1.6f, cx + maxW, bottom + maxH * 0.5f, (a * 255).roundToInt())
+        block()
+        c.restoreToCount(n)
+    }
+
+    // ---- driving: side view
+
+    private fun drawDriving(c: Canvas, b: android.graphics.Bitmap, wb: android.graphics.Bitmap, cx0: Float, bottom: Float, maxW: Float, maxH: Float,
+                            wheelDeg: Float, dashPhase: Float, moving: Boolean) {
         val fw = X1 - X0; val fh = Y1 - Y0
-        val s = min(maxW / fw, maxH / fh)
+        val s = min(maxW * 0.9f / fw, maxH / fh)
+        val cx = cx0 - min(maxW * 0.04f, 0.25f * s) // a little room in front for the headlight beam
         val left = cx - fw * s / 2f
         val top = bottom - fh * s
         fun px(x: Float) = left + (x - X0) * s
         fun py(y: Float) = top + (Y1 - y) * s
         val ground = py(0f)
-        floor(c, cx, ground, fw * s, s, dashPhase, moving)
-        // soft contact shadow under the whole car, darker under the tyres
-        p.xfermode = null; p.style = Paint.Style.FILL
-        shadow(c, cx, ground, fw * s * 0.47f, 0.11f * s, if (C.night) 0.85f else 0.45f)
-        for (x in WHEELS) shadow(c, px(x), ground, 0.42f * s, 0.05f * s, if (C.night) 0.9f else 0.55f)
-        // lamps glow behind the body edges
-        glow(c, px(HEAD[0]), py(HEAD[1]), 0.22f * s, C.accent, if (C.night) 0.32f else 0.18f)
-        glow(c, px(TAIL[0]), py(TAIL[1]), 0.18f * s, 0xFFFF3B4A.toInt(), if (C.night) 0.30f else 0.14f)
+        p.xfermode = null; p.style = Paint.Style.FILL; p.pathEffect = null
+        floorGlow(c, cx, ground, fw * s, if (C.night) 0.40f else 0.26f)
+        road(c, cx0, ground, maxW, s, dashPhase, moving)
+        streaks(c, cx0, ground, maxW, s, dashPhase, moving)
+        // headlight beam on the road ahead
+        val hx = px(HEAD[0]); val hy = py(HEAD[1])
+        val reach = min(1.9f * s, cx0 + maxW * 0.5f - hx + 0.6f * s)
+        beam.reset()
+        beam.moveTo(hx - 0.05f * s, hy - 0.03f * s)
+        beam.lineTo(hx + reach, ground - 0.30f * s)
+        beam.lineTo(hx + reach, ground + 0.05f * s)
+        beam.lineTo(hx - 0.05f * s, hy + 0.05f * s)
+        beam.close()
+        val bc = if (C.night) 0xFFEAF2FF.toInt() else 0xFFFFFFFF.toInt()
+        p.color = 0xFF000000.toInt()
+        p.shader = LinearGradient(hx, 0f, hx + reach, 0f, withAlpha(bc, if (C.night) 0.22f else 0.12f), withAlpha(bc, 0f), Shader.TileMode.CLAMP)
+        c.drawPath(beam, p)
+        p.shader = null
+        shadow(c, hx + reach * 0.45f, ground + 0.02f * s, reach * 0.55f, 0.07f * s, 0f, glowColor = withAlpha(bc, if (C.night) 0.20f else 0.10f))
+        // contact shadow, darker under the tyres
+        shadow(c, cx, ground, fw * s * 0.47f, 0.10f * s, if (C.night) 0.85f else 0.45f)
+        for (x in WHEELS) shadow(c, px(x), ground, 0.44f * s, 0.05f * s, if (C.night) 0.9f else 0.55f)
+        // lamps glow around the body edges
+        glow(c, hx, hy, 0.26f * s, bc, if (C.night) 0.40f else 0.22f)
+        glow(c, px(TAIL[0]), py(TAIL[1]), 0.30f * s, 0xFFFF2B3A.toInt(), if (C.night) 0.45f else 0.22f)
         rf.set(left, top, left + fw * s, top + fh * s)
         c.drawBitmap(b, null, rf, bp)
         val r = WHEEL_HALF * s
@@ -284,37 +369,90 @@ object CarArt {
             c.save()
             c.rotate(wheelDeg, wx, wy)
             rf.set(wx - r, wy - r, wx + r, wy + r)
-            c.drawBitmap(w, null, rf, bp)
+            c.drawBitmap(wb, null, rf, bp)
             c.restore()
         }
     }
 
-    private fun floor(c: Canvas, cx: Float, ground: Float, width: Float, s: Float, dashPhase: Float, moving: Boolean) {
-        p.style = Paint.Style.FILL; p.xfermode = null
-        c.save(); c.scale(1f, 0.11f, cx, ground)
-        p.color = 0xFF000000.toInt()
-        p.shader = RadialGradient(cx, ground, width * 0.56f, withAlpha(C.accent, if (C.night) 0.42f else 0.28f), withAlpha(C.accent, 0f), Shader.TileMode.CLAMP)
-        c.drawCircle(cx, ground, width * 0.56f, p)
-        c.restore()
+    /** Road edge and moving lane dashes under the car. */
+    private fun road(c: Canvas, cx: Float, ground: Float, width: Float, s: Float, dashPhase: Float, moving: Boolean) {
         val g = if (C.night) 0x59FFFFFF else 0x401B2A44
+        p.style = Paint.Style.FILL
+        p.color = 0xFF000000.toInt()
         p.shader = LinearGradient(cx - width * 0.5f, 0f, cx + width * 0.5f, 0f, intArrayOf(g and 0x00FFFFFF, g, g and 0x00FFFFFF), null, Shader.TileMode.CLAMP)
         c.drawRect(cx - width * 0.5f, ground, cx + width * 0.5f, ground + max(1f, 0.006f * s), p)
         p.shader = null
-        if (moving) {
-            p.style = Paint.Style.STROKE; p.strokeWidth = max(1f, 0.01f * s)
-            p.color = if (C.night) 0x24FFFFFF else 0x261B2A44
-            val k = s / 130f // dash pattern scaled to the car (phase is in 640-wide drawing units)
-            p.pathEffect = DashPathEffect(floatArrayOf(22f * k, 28f * k), dashPhase * k)
-            dash.reset(); dash.moveTo(cx - width * 0.52f, ground + 0.06f * s); dash.lineTo(cx + width * 0.52f, ground + 0.06f * s)
-            c.drawPath(dash, p)
-            p.pathEffect = null; p.style = Paint.Style.FILL
-        }
+        p.style = Paint.Style.STROKE; p.strokeWidth = max(1.5f, 0.02f * s); p.strokeCap = Paint.Cap.BUTT
+        p.color = if (C.night) 0x33FFFFFF else 0x331B2A44
+        val k = s / 130f // dash pattern scaled to the car (phase is in 640-wide drawing units)
+        p.pathEffect = DashPathEffect(floatArrayOf(34f * k, 30f * k), if (moving) dashPhase * k * 1.28f else 0f)
+        dash.reset(); dash.moveTo(cx - width * 0.5f, ground + 0.08f * s); dash.lineTo(cx + width * 0.5f, ground + 0.08f * s)
+        c.drawPath(dash, p)
+        p.pathEffect = null; p.style = Paint.Style.FILL
     }
 
-    private fun shadow(c: Canvas, x: Float, y: Float, rx: Float, ry: Float, a: Float) {
+    /** Thin light streaks rushing past behind the car (only while moving). */
+    private fun streaks(c: Canvas, cx: Float, ground: Float, width: Float, s: Float, dashPhase: Float, moving: Boolean) {
+        if (!moving) return
+        val x0 = cx - width * 0.5f; val span = width
+        val rows = floatArrayOf(0.22f, 0.55f, 1.02f, 1.32f, 0.80f)
+        val lens = floatArrayOf(0.30f, 0.18f, 0.24f, 0.14f, 0.20f)
+        p.style = Paint.Style.STROKE; p.strokeCap = Paint.Cap.ROUND; p.strokeWidth = max(1f, 0.012f * s)
+        for (i in rows.indices) {
+            val len = lens[i] * span
+            val t = ((dashPhase / 50f) * (1.3f + i * 0.17f) + i * 0.37f) % 1f
+            val xe = x0 + span * (1.15f - t * 1.3f)
+            val xs = xe + len
+            val y = ground - rows[i] * s
+            val col = if (i % 2 == 0) C.accent else (if (C.night) 0xFFFFFFFF.toInt() else 0xFF1B2A44.toInt())
+            p.color = 0xFF000000.toInt()
+            p.shader = LinearGradient(xe, 0f, xs, 0f, withAlpha(col, if (C.night) 0.30f else 0.18f), withAlpha(col, 0f), Shader.TileMode.CLAMP)
+            c.drawLine(max(x0, xe), y, min(x0 + span, xs), y, p)
+        }
+        p.shader = null; p.style = Paint.Style.FILL
+    }
+
+    // ---- parked: three-quarter showroom view
+
+    private fun drawParked(c: Canvas, b: android.graphics.Bitmap, cx: Float, bottom: Float, maxW: Float, maxH: Float) {
+        val iw = b.width.toFloat(); val ih = b.height.toFloat()
+        val ground = bottom - maxH * 0.015f
+        val sc = min(maxW * 0.78f / iw, maxH / (ih * PARK_CONTACT))
+        val w = iw * sc; val h = ih * sc
+        val top = ground - h * PARK_CONTACT
+        p.xfermode = null; p.style = Paint.Style.FILL; p.pathEffect = null
+        // spotlight pool on the floor and a thin floor line
+        c.save(); c.scale(1f, 0.16f, cx, ground)
+        p.color = 0xFF000000.toInt()
+        p.shader = RadialGradient(cx, ground, w * 0.62f,
+            intArrayOf(withAlpha(C.accent, if (C.night) 0.50f else 0.30f), withAlpha(C.accent, if (C.night) 0.16f else 0.10f), withAlpha(C.accent, 0f)),
+            floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
+        c.drawCircle(cx, ground, w * 0.62f, p)
+        c.restore()
+        p.shader = null
+        // light from above, falling on the car
+        p.color = 0xFF000000.toInt()
+        p.shader = RadialGradient(cx, top + h * 0.35f, w * 0.55f, withAlpha(if (C.night) 0xFFFFFFFF.toInt() else C.accent, if (C.night) 0.06f else 0.05f), 0, Shader.TileMode.CLAMP)
+        c.drawCircle(cx, top + h * 0.35f, w * 0.55f, p)
+        p.shader = null
+        rf.set(cx - w / 2f, top, cx + w / 2f, top + h)
+        c.drawBitmap(b, null, rf, bp)
+    }
+
+    private fun floorGlow(c: Canvas, cx: Float, ground: Float, width: Float, a: Float) {
+        c.save(); c.scale(1f, 0.11f, cx, ground)
+        p.color = 0xFF000000.toInt()
+        p.shader = RadialGradient(cx, ground, width * 0.56f, withAlpha(C.accent, a), withAlpha(C.accent, 0f), Shader.TileMode.CLAMP)
+        c.drawCircle(cx, ground, width * 0.56f, p)
+        c.restore()
+        p.shader = null
+    }
+
+    private fun shadow(c: Canvas, x: Float, y: Float, rx: Float, ry: Float, a: Float, glowColor: Int = 0) {
         c.save(); c.scale(1f, ry / rx, x, y)
         p.color = 0xFF000000.toInt()
-        p.shader = RadialGradient(x, y, rx, intArrayOf(withAlpha(0xFF000000.toInt(), a), withAlpha(0xFF000000.toInt(), a * 0.6f), 0), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP)
+        p.shader = if (glowColor != 0) RadialGradient(x, y, rx, glowColor, glowColor and 0x00FFFFFF, Shader.TileMode.CLAMP)
+        else RadialGradient(x, y, rx, intArrayOf(withAlpha(0xFF000000.toInt(), a), withAlpha(0xFF000000.toInt(), a * 0.6f), 0), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP)
         c.drawCircle(x, y, rx, p)
         c.restore(); p.shader = null
     }
@@ -327,13 +465,15 @@ object CarArt {
     }
 
     /** The owner's own photo: cut-out pictures stand on the floor; normal photos get soft edges. */
-    private fun drawPhoto(c: Canvas, b: android.graphics.Bitmap, cx: Float, bottom: Float, maxW: Float, maxH: Float) {
+    private fun drawPhoto(c: Canvas, b: android.graphics.Bitmap, cx: Float, bottom: Float, maxW: Float, maxH: Float, dashPhase: Float, moving: Boolean) {
         val s = min(maxW / b.width, maxH / b.height)
         val w = b.width * s; val h = b.height * s
         rf.set(cx - w / 2, bottom - h, cx + w / 2, bottom)
         if (b.hasAlpha()) {
-            floor(c, cx, bottom - h * 0.02f, w, h / 1.5f, 0f, false)
+            floorGlow(c, cx, bottom - h * 0.02f, w, if (C.night) 0.42f else 0.28f)
+            if (moving) road(c, cx, bottom - h * 0.02f, w, h / 1.5f, dashPhase, true)
             shadow(c, cx, bottom - h * 0.03f, w * 0.46f, h * 0.06f, if (C.night) 0.8f else 0.4f)
+            rf.set(cx - w / 2, bottom - h, cx + w / 2, bottom)
             c.drawBitmap(b, null, rf, bp)
             return
         }
@@ -402,8 +542,9 @@ class HeroView(ctx: Context) : View(ctx) {
             stats[2][1] = if (Gps.fresh || Gps.bearing != 0f) Gps.compass(Gps.bearing) else "--"
             stats[2][2] = if (Gps.fresh || Gps.bearing != 0f) fmt("%.0f°", Gps.bearing) else ""
         }
+        CarArt.Mode.track(k)
         val nk = "$time|$ampm|$date|$temp|$wx|$speed|$unit|$src|$frac|$warn|$dim|${stats.joinToString { it.joinToString() }}|${C.night}|" +
-            "${RoadLimit.signNumber()}|${SpeedAlert.overRoad}|$lowRange"
+            "${RoadLimit.signNumber()}|${SpeedAlert.overRoad}|$lowRange|${CarArt.Mode.driving()}"
         if (nk != key) { key = nk; invalidate() }
         if (kmh > 1f && Motion.on && last == 0L) invalidate()
     }
@@ -520,8 +661,9 @@ class HeroView(ctx: Context) : View(ctx) {
             }
             last = now
         } else last = 0L
-        CarArt.draw(c, w / 2f, h - 26f * s, w * 0.9f, h - 26f * s - carTop, wheel, phase, moving)
-        if (moving && isShown) postInvalidateDelayed(40)
+        val mix = CarArt.Mode.mix()
+        CarArt.draw(c, w / 2f, h - 26f * s, w * 0.94f, h - 26f * s - carTop, wheel, phase, moving, mix)
+        if ((moving || !CarArt.Mode.settled()) && isShown) postInvalidateDelayed(if (moving) 40 else 16)
     }
 }
 

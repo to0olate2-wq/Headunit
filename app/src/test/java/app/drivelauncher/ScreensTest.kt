@@ -143,6 +143,7 @@ class ScreensTest {
         Gps.lastFix = SystemClock.elapsedRealtime()
         save(act, "$name-glass-home2")
         act.showHome(0); save(act, "$name-glass-home1")
+        CarArt.Mode.force = false; act.showHome(0); save(act, "$name-glass-parked"); CarArt.Mode.force = null
         act.showHome(2); save(act, "$name-glass-home3")
         act.show(MainActivity.Page.TELEMETRY); save(act, "$name-glass-telemetry")
         if (full) {
@@ -161,6 +162,7 @@ class ScreensTest {
             Prefs.theme = "day"
             act.applyTheme()
             act.showHome(0); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-glass-day-home1")
+            CarArt.Mode.force = false; act.showHome(0); save(act, "$name-glass-day-parked"); CarArt.Mode.force = null
             act.showHome(1); Thread.sleep(2500); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-glass-day-home2")
             act.showCarTab(1); save(act, "$name-glass-day-car-fuel")
             Prefs.theme = "night"
@@ -221,6 +223,7 @@ class ScreensTest {
                 Prefs.theme = "day"
                 act.applyTheme()
                 act.showHome(0); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-$sk-day-home1")
+                CarArt.Mode.force = false; act.showHome(0); save(act, "$name-$sk-day-parked"); CarArt.Mode.force = null
                 Prefs.theme = "night"
                 act.applyTheme()
             }
