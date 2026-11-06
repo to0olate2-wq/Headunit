@@ -63,10 +63,7 @@ open class MainActivity : Activity() {
     private var sources: SourcesPage? = null
     private var apps: AppsPage? = null
     private var dock: Dock? = null
-    private var saver: View? = null
-    private var saverTime: TextView? = null
-    private var saverDate: TextView? = null
-    private var saverInfo: TextView? = null
+    private var saver: SaverView? = null
     private val handler = Handler(Looper.getMainLooper())
     private var resumed = false
     private var tickCount = 0
@@ -83,6 +80,8 @@ open class MainActivity : Activity() {
             tickCount++
             if (tickCount % 12 == 0 && !MediaHub.accessGranted) MediaHub.tryAttach()
             if (tickCount % 40 == 0) checkTheme(false)
+            CarArt.Mode.track(if (Gps.fresh) Gps.speedKmh else Obd.v("speed"))
+            if (!dashMode) Updater.tick(this@MainActivity)
             checkSaver()
             if (resumed) handler.postDelayed(this, 250)
         }
@@ -177,8 +176,8 @@ open class MainActivity : Activity() {
             dock = dk
         }
         root.addView(col, flp(MATCH, MATCH))
-        if (!dashMode) bannerBox?.let { root.addView(it, flp(MATCH, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL)) }
         buildSaver()
+        if (!dashMode) bannerBox?.let { root.addView(it, flp(MATCH, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL)) }
         show(page)
         Diag.log("layout ${w}x$h scale ${fmt("%.2f", S.u)} ${if (portrait) "portrait" else "landscape"}, ${pages.size} home pages")
     }
@@ -286,32 +285,37 @@ open class MainActivity : Activity() {
     // ---------------------------------------------------------------- screen saver
 
     private fun buildSaver() {
-        val v = vbox(6f)
-        v.gravity = Gravity.CENTER
-        v.setBackgroundColor(if (C.night) 0xFF000000.toInt() else C.BG)
-        val t = label(180f, C.TEXT, F.display).tnum()
-        val d = label(28f, C.TEXT2, F.medium)
-        val i = label(20f, C.MUTED, F.regular, lines = 2).apply { gravity = Gravity.CENTER }
-        v.addView(t, lp(WRAP, WRAP)); v.addView(d, lp(WRAP, WRAP)); v.addView(i, lp(WRAP, WRAP).apply { topMargin = S.i(16) })
+        val v = SaverView(this)
         v.visibility = View.GONE
         v.isClickable = true
-        v.setOnClickListener { v.visibility = View.GONE; lastTouch = SystemClock.elapsedRealtime() }
+        v.contentDescription = "Screen saver, tap to close"
+        v.setOnClickListener { hideSaver() }
         root.addView(v, flp(MATCH, MATCH))
-        saver = v; saverTime = t; saverDate = d; saverInfo = i
+        saver = v
     }
 
     private fun checkSaver() {
         val s = saver ?: return
         val min = Prefs.saverMin
-        val moving = (Gps.fresh && Gps.speedKmh > 5f) || (Obd.v("speed") ?: 0f) > 5f
-        val want = !dashMode && min > 0 && !moving && SystemClock.elapsedRealtime() - lastTouch > min * 60_000L
-        if (s.visibility == View.VISIBLE && moving) s.visibility = View.GONE
-        if (want && s.visibility != View.VISIBLE) s.visibility = View.VISIBLE
-        if (s.visibility == View.VISIBLE) {
-            saverTime?.put(Fmt.timeShort())
-            saverDate?.put(Fmt.dateLong() + (if (Weather.tempC.isNaN()) "" else fmt("  ·  %.0f°", Units.temp(Weather.tempC))))
-            saverInfo?.put(MediaHub.current?.let { "${it.title}${if (it.artist.isNotEmpty()) " — " + it.artist else ""}" } ?: "")
-        }
+        val moving = CarArt.Mode.driving() || (Gps.fresh && Gps.speedKmh > 5f) || (Obd.v("speed") ?: 0f) > 5f
+        if (s.visibility == View.VISIBLE && (moving || PhoneHub.active)) hideSaver()
+        val want = !dashMode && min > 0 && !moving && !PhoneHub.active && hasWindowFocus() &&
+            SystemClock.elapsedRealtime() - lastTouch > min * 60_000L
+        if (want && s.visibility != View.VISIBLE) showSaver()
+        if (s.visibility == View.VISIBLE) s.update()
+    }
+
+    /** Parked screen saver (also used by the screen tests). */
+    fun showSaver() {
+        val s = saver ?: return
+        s.update()
+        s.visibility = View.VISIBLE
+        if (Motion.on) { s.alpha = 0f; s.animate().alpha(1f).setDuration(900L).start() } else s.alpha = 1f
+    }
+
+    fun hideSaver() {
+        saver?.visibility = View.GONE
+        lastTouch = SystemClock.elapsedRealtime()
     }
 
     // ---------------------------------------------------------------- lifecycle
@@ -503,6 +507,52 @@ open class MainActivity : Activity() {
         } catch (_: Exception) {}
     }
 
+    // ---- backup
+
+    /** "Back up now": a copy in Downloads, or a file wherever the owner chooses (USB stick…). */
+    fun backupNow() {
+        val items = ArrayList<String>()
+        if (Build.VERSION.SDK_INT >= 29) items.add("Save to Downloads")
+        items.add("Choose where (USB stick, SD card…)")
+        dialog().setTitle("Back up").setItems(items.toTypedArray()) { _, i ->
+            if (items[i].startsWith("Save")) {
+                Thread {
+                    val msg = try { "Backup saved: " + Backup.toDownloads(this) } catch (e: Exception) { "Couldn't back up: ${e.message}" }
+                    runOnUiThread { Toast.makeText(this, msg, Toast.LENGTH_LONG).show() }
+                }.start()
+            } else try {
+                @Suppress("DEPRECATION")
+                startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("application/zip").putExtra(Intent.EXTRA_TITLE, Backup.fileName()), REQ_BACKUP)
+            } catch (_: Exception) {
+                Toast.makeText(this, "No file app found on this unit. Use \"Save to Downloads\".", Toast.LENGTH_LONG).show()
+            }
+        }.setNegativeButton("Cancel", null).show()
+    }
+
+    fun pickRestore() {
+        try {
+            @Suppress("DEPRECATION")
+            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
+                .putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")), REQ_RESTORE)
+        } catch (_: Exception) {
+            Toast.makeText(this, "No file app found on this unit to choose the backup", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun restoreFrom(uri: Uri) {
+        confirm("Restore this backup?", "Your current settings, home pages, trips, fuel and service logs are replaced by the backup's. The launcher restarts.") {
+            try {
+                val what = (contentResolver.openInputStream(uri) ?: throw java.io.IOException("Couldn't open the file")).use { Backup.restore(this, it) }
+                Diag.log("restored backup $what")
+                Toast.makeText(this, "Restored ($what). Restarting…", Toast.LENGTH_SHORT).show()
+                handler.postDelayed({ Backup.restart(this) }, 600)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Couldn't restore: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     // ---- pictures
 
     /** Pick a video for the wallpaper (kept by reference, not copied). */
@@ -544,6 +594,21 @@ open class MainActivity : Activity() {
                 } catch (e: Exception) {
                     Toast.makeText(this, "Couldn't use that picture (${e.message})", Toast.LENGTH_LONG).show()
                 }
+            }
+            REQ_BACKUP -> {
+                val uri = data?.data
+                if (resultCode == RESULT_OK && uri != null) Thread {
+                    val msg = try {
+                        (contentResolver.openOutputStream(uri, "wt") ?: throw java.io.IOException("Couldn't open the file")).use { Backup.write(this, it) }
+                        Prefs.sl("lastBackup", System.currentTimeMillis())
+                        "Backup saved"
+                    } catch (e: Exception) { "Couldn't back up: ${e.message}" }
+                    runOnUiThread { Toast.makeText(this, msg, Toast.LENGTH_LONG).show() }
+                }.start()
+            }
+            REQ_RESTORE -> {
+                val uri = data?.data
+                if (resultCode == RESULT_OK && uri != null) restoreFrom(uri)
             }
             REQ_CONTACT -> {
                 if (resultCode == RESULT_OK) data?.data?.let { PhoneHub.onPicked(this, it) }
@@ -794,6 +859,8 @@ open class MainActivity : Activity() {
         const val REQ_VIDEO = 16
         const val REQ_PHONE = 17
         const val REQ_CONTACT = 18
+        const val REQ_RESTORE = 19
+        const val REQ_BACKUP = 20
     }
 }
 

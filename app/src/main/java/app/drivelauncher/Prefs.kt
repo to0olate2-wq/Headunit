@@ -84,6 +84,23 @@ object Prefs {
         set(v) = p.edit().putString("mediaPin", v).apply()
 
     // ---- generic accessors for the newer settings ----
+    /** Every stored setting (for backups). */
+    fun all(): Map<String, *> = p.all
+
+    /** Replace every setting with a backup's (written at once). */
+    fun replaceAll(m: Map<String, Any>) {
+        val e = p.edit().clear()
+        for ((k, v) in m) when (v) {
+            is Boolean -> e.putBoolean(k, v)
+            is Int -> e.putInt(k, v)
+            is Long -> e.putLong(k, v)
+            is Float -> e.putFloat(k, v)
+            is Set<*> -> e.putStringSet(k, v.map { it.toString() }.toSet())
+            else -> e.putString(k, v.toString())
+        }
+        e.commit()
+    }
+
     fun gs(k: String, d: String = ""): String = p.getString(k, d) ?: d
     fun ss(k: String, v: String) = p.edit().putString(k, v).apply()
     fun gi(k: String, d: Int): Int = p.getInt(k, d)
@@ -111,7 +128,13 @@ object Prefs {
     var autoReturn: Int get() = gi("autoReturn", 0); set(v) = si("autoReturn", v)
     var lastBoot: Int get() = gi("lastBoot", -1); set(v) = si("lastBoot", v)
     /** minutes parked before the screen saver shows; 0 = off */
-    var saverMin: Int get() = gi("saverMin", 0); set(v) = si("saverMin", v)
+    var saverMin: Int get() = gi("saverMin", 5); set(v) = si("saverMin", v)
+    /** Break reminder after this many minutes of driving (0 = off). */
+    var breakMin: Int get() = gi("breakMin", 120); set(v) = si("breakMin", v)
+    /** Look for new versions on GitHub every few hours. */
+    var autoUpdate: Boolean get() = gb("autoUpdate", true); set(v) = sb("autoUpdate", v)
+    /** Daily backup copy in Downloads. */
+    var autoBackup: Boolean get() = gb("autoBackup", true); set(v) = sb("autoBackup", v)
     var splitApp: String get() = gs("splitApp", ""); set(v) = ss("splitApp", v)
     /** Home pages (JSON). Each theme keeps its own; Classic also reads the layout saved before themes existed. */
     var pages: String

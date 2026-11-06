@@ -362,11 +362,12 @@ object Speaker {
 object Banners {
     private var shownPhone = -1
     private var shownMsg = -1
+    private var shownNotice = -1
     private var msgUntil = 0L
     private var view: View? = null
     private var kind = ""
 
-    fun attach(a: MainActivity) { shownPhone = -1; shownMsg = MessageHub.version; view = null; kind = "" }
+    fun attach(a: MainActivity) { shownPhone = -1; shownMsg = MessageHub.version; shownNotice = -1; view = null; kind = "" }
 
     fun update(a: MainActivity) {
         val box = a.bannerBox ?: return
@@ -382,6 +383,36 @@ object Banners {
             if (m != null) { put(a, box, msgBanner(a, m), "msg"); msgUntil = SystemClock.elapsedRealtime() + 15_000 }
         }
         if (kind == "msg" && SystemClock.elapsedRealtime() > msgUntil) clear(box)
+        // notices (update ready, take a break) when nothing more urgent is showing
+        Notices.current?.let { n -> if (n.until > 0 && SystemClock.elapsedRealtime() > n.until) Notices.clear(n.key) }
+        val n = Notices.current
+        if (kind == "notice" && n == null) clear(box)
+        if (n != null && (kind == "" || (kind == "notice" && shownNotice != Notices.version))) {
+            shownNotice = Notices.version
+            put(a, box, noticeBanner(a, n), "notice")
+        }
+    }
+
+    private fun noticeBanner(a: MainActivity, n: Notices.N): View {
+        val v = shell(a)
+        val ic = IconBtn(a, n.ic, 24f).apply { circle = true; bgColor = C.accent; fg = C.ON_ACCENT; sw = 2.2f; isClickable = false }
+        v.addView(ic, lp(S.i(52), S.i(52)))
+        val col = a.vbox(2f)
+        col.addView(a.label(18f, C.TEXT, F.semibold).apply { text = n.title }, lp(MATCH, WRAP))
+        if (n.text.isNotEmpty()) col.addView(a.label(14f, C.TEXT2, F.regular, lines = 2).apply { text = n.text }, lp(MATCH, WRAP))
+        v.addView(col, lp(0, WRAP, 1f))
+        val run = n.run
+        if (n.action != null && run != null) {
+            val b = a.label(15f, C.ON_ACCENT, F.semibold).apply {
+                text = n.action; gravity = Gravity.CENTER; background = roundBg(C.accent, 14f); pad(18f, 0f); isClickable = true
+            }
+            b.setOnClickListener { Notices.clear(n.key); run(a); update(a) }
+            v.addView(b, lp(WRAP, S.i(48)))
+        }
+        val close = IconBtn(a, Ic.CLOSE, 18f).apply { contentDescription = if (n.key == "update") "Later" else "Close" }
+        close.setOnClickListener { if (n.key == "update") Updater.later(); Notices.clear(n.key); update(a) }
+        v.addView(close, lp(S.i(44), S.i(44)))
+        return v
     }
 
     private fun put(a: MainActivity, box: FrameLayout, v: View, k: String) {

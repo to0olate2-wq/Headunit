@@ -57,6 +57,14 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
   notification with CATEGORY_CALL / CallStyle / answer-hangup actions), `MessageHub` (chat notifications → banner, card,
   `Speaker` TTS with ducking, auto-reply via RemoteInput, never to groups, once per chat per 20 min), `Banners` (top of
   the launcher, `MainActivity.bannerBox`), `PhoneCard`, `MessagesCard`. Listener order: Nav → Phone → Message → Media.
+- `Care.kt` (0.6.15+): `Notices` (one banner for "update ready" / "take a break", after calls and messages, shown by
+  `Banners`), `Backup` (zip = `backup.json` with every pref + `files/`; manual via SAF or `toDownloads` (MediaStore,
+  same file updated), daily `auto` from DriveService, `restore` then `restart` = kill process, no onPause, so the old
+  trip isn't saved over it), `Updater` (GitHub `releases/latest`, `build-<run>` vs `VERSION_CODE - 1000`, every 6 h,
+  banner only when parked; download → `PackageInstaller` session → `UpdateReceiver` opens Android's confirm screen),
+  `BreakReminder` (DriveService tick; 15 min stop resets; voice + notice + notification), `SaverView` (parked screen
+  saver, always dark, drifts each minute; `MainActivity.showSaver/hideSaver`). Tests set `Prefs.saverMin = 0` and
+  `Prefs.autoUpdate = false`; `CareTest` covers backup/restore, update answers, reminder wording.
 - `Overlay` + `FloatPanel` (DriveService.kt): one draggable pill over other apps with speed (`bubble`), next turn
   (`floatTurn`) and mini player (`floatMusic`). `LiveScenes` (city/rain/highway) and `VideoBackground` (TextureView +
   MediaPlayer, persisted document URI `videoUri`) in Views.kt; background picker is a list in Settings → Look.

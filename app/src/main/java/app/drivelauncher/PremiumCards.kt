@@ -255,6 +255,10 @@ object CarArt {
         fun settled() = mix == (if (driving()) 1f else 0f)
     }
 
+    /** Draw with the night look whatever the theme (the screen saver is always dark). */
+    var alwaysNight = false
+    private val night: Boolean get() = alwaysNight || C.night
+
     private var app: android.content.Context? = null
     private var bodyKey = ""
     private var side: android.graphics.Bitmap? = null
@@ -337,7 +341,7 @@ object CarArt {
         fun py(y: Float) = top + (Y1 - y) * s
         val ground = py(0f)
         p.xfermode = null; p.style = Paint.Style.FILL; p.pathEffect = null
-        floorGlow(c, cx, ground, fw * s, if (C.night) 0.40f else 0.26f)
+        floorGlow(c, cx, ground, fw * s, if (night) 0.40f else 0.26f)
         road(c, cx0, ground, maxW, s, dashPhase, moving)
         streaks(c, cx0, ground, maxW, s, dashPhase, moving)
         // headlight beam on the road ahead
@@ -349,18 +353,18 @@ object CarArt {
         beam.lineTo(hx + reach, ground + 0.05f * s)
         beam.lineTo(hx - 0.05f * s, hy + 0.05f * s)
         beam.close()
-        val bc = if (C.night) 0xFFEAF2FF.toInt() else 0xFFFFFFFF.toInt()
+        val bc = if (night) 0xFFEAF2FF.toInt() else 0xFFFFFFFF.toInt()
         p.color = 0xFF000000.toInt()
-        p.shader = LinearGradient(hx, 0f, hx + reach, 0f, withAlpha(bc, if (C.night) 0.22f else 0.12f), withAlpha(bc, 0f), Shader.TileMode.CLAMP)
+        p.shader = LinearGradient(hx, 0f, hx + reach, 0f, withAlpha(bc, if (night) 0.22f else 0.12f), withAlpha(bc, 0f), Shader.TileMode.CLAMP)
         c.drawPath(beam, p)
         p.shader = null
-        shadow(c, hx + reach * 0.45f, ground + 0.02f * s, reach * 0.55f, 0.07f * s, 0f, glowColor = withAlpha(bc, if (C.night) 0.20f else 0.10f))
+        shadow(c, hx + reach * 0.45f, ground + 0.02f * s, reach * 0.55f, 0.07f * s, 0f, glowColor = withAlpha(bc, if (night) 0.20f else 0.10f))
         // contact shadow, darker under the tyres
-        shadow(c, cx, ground, fw * s * 0.47f, 0.10f * s, if (C.night) 0.85f else 0.45f)
-        for (x in WHEELS) shadow(c, px(x), ground, 0.44f * s, 0.05f * s, if (C.night) 0.9f else 0.55f)
+        shadow(c, cx, ground, fw * s * 0.47f, 0.10f * s, if (night) 0.85f else 0.45f)
+        for (x in WHEELS) shadow(c, px(x), ground, 0.44f * s, 0.05f * s, if (night) 0.9f else 0.55f)
         // lamps glow around the body edges
-        glow(c, hx, hy, 0.18f * s, bc, if (C.night) 0.38f else 0.20f)
-        glow(c, px(TAIL[0]) + 0.04f * s, py(TAIL[1]), 0.20f * s, 0xFFFF2B3A.toInt(), if (C.night) 0.38f else 0.18f)
+        glow(c, hx, hy, 0.18f * s, bc, if (night) 0.38f else 0.20f)
+        glow(c, px(TAIL[0]) + 0.04f * s, py(TAIL[1]), 0.20f * s, 0xFFFF2B3A.toInt(), if (night) 0.38f else 0.18f)
         rf.set(left, top, left + fw * s, top + fh * s)
         c.drawBitmap(b, null, rf, bp)
         val r = WHEEL_HALF * s
@@ -376,14 +380,14 @@ object CarArt {
 
     /** Road edge and moving lane dashes under the car. */
     private fun road(c: Canvas, cx: Float, ground: Float, width: Float, s: Float, dashPhase: Float, moving: Boolean) {
-        val g = if (C.night) 0x59FFFFFF else 0x401B2A44
+        val g = if (night) 0x59FFFFFF else 0x401B2A44
         p.style = Paint.Style.FILL
         p.color = 0xFF000000.toInt()
         p.shader = LinearGradient(cx - width * 0.5f, 0f, cx + width * 0.5f, 0f, intArrayOf(g and 0x00FFFFFF, g, g and 0x00FFFFFF), null, Shader.TileMode.CLAMP)
         c.drawRect(cx - width * 0.5f, ground, cx + width * 0.5f, ground + max(1f, 0.006f * s), p)
         p.shader = null
         p.style = Paint.Style.STROKE; p.strokeWidth = max(1.5f, 0.02f * s); p.strokeCap = Paint.Cap.BUTT
-        p.color = if (C.night) 0x33FFFFFF else 0x331B2A44
+        p.color = if (night) 0x33FFFFFF else 0x331B2A44
         val k = s / 130f // dash pattern scaled to the car (phase is in 640-wide drawing units)
         p.pathEffect = DashPathEffect(floatArrayOf(34f * k, 30f * k), if (moving) dashPhase * k * 1.28f else 0f)
         dash.reset(); dash.moveTo(cx - width * 0.5f, ground + 0.08f * s); dash.lineTo(cx + width * 0.5f, ground + 0.08f * s)
@@ -404,9 +408,9 @@ object CarArt {
             val xe = x0 + span * (1.15f - t * 1.3f)
             val xs = xe + len
             val y = ground - rows[i] * s
-            val col = if (i % 2 == 0) C.accent else (if (C.night) 0xFFFFFFFF.toInt() else 0xFF1B2A44.toInt())
+            val col = if (i % 2 == 0) C.accent else (if (night) 0xFFFFFFFF.toInt() else 0xFF1B2A44.toInt())
             p.color = 0xFF000000.toInt()
-            p.shader = LinearGradient(xe, 0f, xs, 0f, withAlpha(col, if (C.night) 0.30f else 0.18f), withAlpha(col, 0f), Shader.TileMode.CLAMP)
+            p.shader = LinearGradient(xe, 0f, xs, 0f, withAlpha(col, if (night) 0.30f else 0.18f), withAlpha(col, 0f), Shader.TileMode.CLAMP)
             c.drawLine(max(x0, xe), y, min(x0 + span, xs), y, p)
         }
         p.shader = null; p.style = Paint.Style.FILL
@@ -425,14 +429,14 @@ object CarArt {
         c.save(); c.scale(1f, 0.16f, cx, ground)
         p.color = 0xFF000000.toInt()
         p.shader = RadialGradient(cx, ground, w * 0.62f,
-            intArrayOf(withAlpha(C.accent, if (C.night) 0.50f else 0.30f), withAlpha(C.accent, if (C.night) 0.16f else 0.10f), withAlpha(C.accent, 0f)),
+            intArrayOf(withAlpha(C.accent, if (night) 0.50f else 0.30f), withAlpha(C.accent, if (night) 0.16f else 0.10f), withAlpha(C.accent, 0f)),
             floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
         c.drawCircle(cx, ground, w * 0.62f, p)
         c.restore()
         p.shader = null
         // light from above, falling on the car
         p.color = 0xFF000000.toInt()
-        p.shader = RadialGradient(cx, top + h * 0.35f, w * 0.55f, withAlpha(if (C.night) 0xFFFFFFFF.toInt() else C.accent, if (C.night) 0.06f else 0.05f), 0, Shader.TileMode.CLAMP)
+        p.shader = RadialGradient(cx, top + h * 0.35f, w * 0.55f, withAlpha(if (night) 0xFFFFFFFF.toInt() else C.accent, if (night) 0.06f else 0.05f), 0, Shader.TileMode.CLAMP)
         c.drawCircle(cx, top + h * 0.35f, w * 0.55f, p)
         p.shader = null
         rf.set(cx - w / 2f, top, cx + w / 2f, top + h)
@@ -470,9 +474,9 @@ object CarArt {
         val w = b.width * s; val h = b.height * s
         rf.set(cx - w / 2, bottom - h, cx + w / 2, bottom)
         if (b.hasAlpha()) {
-            floorGlow(c, cx, bottom - h * 0.02f, w, if (C.night) 0.42f else 0.28f)
+            floorGlow(c, cx, bottom - h * 0.02f, w, if (night) 0.42f else 0.28f)
             if (moving) road(c, cx, bottom - h * 0.02f, w, h / 1.5f, dashPhase, true)
-            shadow(c, cx, bottom - h * 0.03f, w * 0.46f, h * 0.06f, if (C.night) 0.8f else 0.4f)
+            shadow(c, cx, bottom - h * 0.03f, w * 0.46f, h * 0.06f, if (night) 0.8f else 0.4f)
             rf.set(cx - w / 2, bottom - h, cx + w / 2, bottom)
             c.drawBitmap(b, null, rf, bp)
             return

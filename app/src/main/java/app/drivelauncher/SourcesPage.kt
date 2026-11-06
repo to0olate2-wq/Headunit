@@ -219,7 +219,7 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
             segmented(listOf("Off", "On"), { if (Prefs.motion) 1 else 0 }) { i -> Prefs.motion = i == 1; a.rebuild() })
         row(look, "Units", segmented(listOf("Metric", "Imperial"), { if (Prefs.imperial) 1 else 0 }) { i -> Prefs.imperial = i == 1; a.rebuild() })
         row(look, "Full screen (hide system bars)", segmented(listOf("Off", "On"), { if (Prefs.fullscreen) 1 else 0 }) { i -> Prefs.fullscreen = i == 1; a.applyFullscreen() })
-        row(look, "Screen saver when parked", segmented(listOf("Off", "2 min", "5 min", "10 min"), { listOf(0, 2, 5, 10).indexOf(Prefs.saverMin) }) { i ->
+        row(look, "Screen saver when parked (clock, weather and your car; tap to close)", segmented(listOf("Off", "2 min", "5 min", "10 min"), { listOf(0, 2, 5, 10).indexOf(Prefs.saverMin) }) { i ->
             Prefs.saverMin = listOf(0, 2, 5, 10)[i]
         })
 
@@ -267,6 +267,10 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         })
         pinBtn.setOnClickListener { val l = MediaHub.cycleSource(a); pinBtn.put("Source: $l") }
         row(drive, "Music source (Auto picks whatever is playing)", pinBtn)
+        row(drive, "Break reminder after long drives (spoken + banner; a 15-minute stop resets it)",
+            segmented(listOf("Off", "1½ h", "2 h", "3 h"), { listOf(0, 90, 120, 180).indexOf(Prefs.breakMin) }) { i ->
+                Prefs.breakMin = listOf(0, 90, 120, 180)[i]
+            })
         row(drive, "Trip computer", button("Reset trip").apply { setOnClickListener { a.confirm("Reset trip?", "Distance, time and speeds go back to zero.") { Gps.resetTrip() } } })
         row(drive, "Odometer (for trips, fuel and service)", dynButton({ fmt("%,.0f km", Odometer.km) }) { a.showCarTab(2) })
         row(drive, "Currency for fuel costs", dynButton({ Prefs.currency }) {
@@ -296,6 +300,17 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         comm.addView(a.label(13f, C.MUTED, F.regular, lines = 3).apply {
             text = "Needs notification access (the same as Music). Calls and messages that happen inside ZLink stay in ZLink."
         }, lp(MATCH, WRAP).apply { topMargin = S.i(4) })
+        val keep = group("Backup & updates")
+        row(keep, "Drive Launcher ${BuildConfig.VERSION_NAME}",
+            dynButton({ Updater.buttonText() }) { if (Updater.available) Updater.install(a) else Updater.check() })
+        row(keep, "Look for new versions automatically (needs internet, e.g. your phone's hotspot)",
+            segmented(listOf("Off", "On"), { if (Prefs.autoUpdate) 1 else 0 }) { i -> Prefs.autoUpdate = i == 1 })
+        row(keep, "Back up settings, home pages, dock, places, trips, fuel and service logs",
+            button("Back up now").apply { setOnClickListener { a.backupNow() } },
+            button("Restore…").apply { setOnClickListener { a.pickRestore() } })
+        row(keep, "Daily backup copy in Downloads (keeps you safe if the app is reinstalled; for a factory reset, also keep one on a USB stick)",
+            segmented(listOf("Off", "On"), { if (Prefs.autoBackup) 1 else 0 }) { i -> Prefs.autoBackup = i == 1 },
+            dynButton({ "Last: " + Backup.lastText() }) { a.backupNow() })
         val sys = group("Connections")
         row(sys, "OBD2 adapter", button("Choose adapter").apply { setOnClickListener { a.chooseObd() } })
         row(sys, "Music & navigation info", button("Notification access").apply { setOnClickListener { a.openNotificationAccess() } })

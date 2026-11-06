@@ -53,6 +53,8 @@ class DriveService : Service() {
                 SpeedVolume.update(this@DriveService)
                 Trips.tick()
                 Overlay.update(this@DriveService)
+                BreakReminder.tick(this@DriveService)
+                Backup.auto(this@DriveService)
             } catch (e: Exception) {
                 Diag.log("service tick: ${e.javaClass.simpleName} ${e.message}")
             }
@@ -65,6 +67,7 @@ class DriveService : Service() {
             when (i.action) {
                 Intent.ACTION_SCREEN_OFF -> {
                     screenOffAt = SystemClock.elapsedRealtime()
+                    BreakReminder.pause()
                     if (!Gps.fresh || Gps.speedKmh < 3f) {
                         Trips.powerOff()
                         if (!Gps.lat.isNaN()) Parking.save(Gps.lat, Gps.lon, System.currentTimeMillis())

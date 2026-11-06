@@ -125,6 +125,8 @@ class ScreensTest {
         val app = RuntimeEnvironment.getApplication()
         Prefs.init(app)
         Prefs.obdMode = "off"
+        Prefs.saverMin = 0       // the saver is shown on purpose below
+        Prefs.autoUpdate = false // no real update checks from the tests
         Prefs.theme = "night"
         Prefs.skin = Skin.GLASS
         Prefs.pages = glassJson
@@ -143,7 +145,14 @@ class ScreensTest {
         Gps.lastFix = SystemClock.elapsedRealtime()
         save(act, "$name-glass-home2")
         act.showHome(0); save(act, "$name-glass-home1")
-        CarArt.Mode.force = false; act.showHome(0); save(act, "$name-glass-parked"); CarArt.Mode.force = null
+        CarArt.Mode.force = false; act.showHome(0); save(act, "$name-glass-parked")
+        act.showSaver(); save(act, "$name-saver"); act.hideSaver()
+        // update banner (shown only while parked)
+        Updater.parse(org.json.JSONObject("""{"tag_name":"build-99999","name":"Drive Launcher 0.6.99999","body":"New premium car with driving and parked looks\n\n- more","assets":[{"name":"DriveLauncher.apk","browser_download_url":"https://example.invalid/DriveLauncher.apk"}]}"""))
+        Updater.tick(act); act.showHome(0); save(act, "$name-update-banner")
+        Updater.parse(org.json.JSONObject("""{"tag_name":"build-0","assets":[]}"""))
+        Updater.tick(act); act.showHome(0); idle()
+        CarArt.Mode.force = null
         act.showHome(2); save(act, "$name-glass-home3")
         act.show(MainActivity.Page.TELEMETRY); save(act, "$name-glass-telemetry")
         if (full) {
@@ -157,12 +166,14 @@ class ScreensTest {
                 sv.scrollTo(0, 620); save(act, "$name-glass-settings-look")
                 sv.scrollTo(0, 1100); save(act, "$name-glass-settings2")
                 sv.scrollTo(0, 100_000); save(act, "$name-glass-settings3")
+                sv.scrollTo(0, sv.scrollY - (sv.height * 0.8f).toInt()); save(act, "$name-glass-settings-backup")
             }
             act.show(MainActivity.Page.APPS); save(act, "$name-glass-apps")
             Prefs.theme = "day"
             act.applyTheme()
             act.showHome(0); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-glass-day-home1")
-            CarArt.Mode.force = false; act.showHome(0); save(act, "$name-glass-day-parked"); CarArt.Mode.force = null
+            CarArt.Mode.force = false; act.showHome(0); save(act, "$name-glass-day-parked")
+            act.showSaver(); save(act, "$name-saver-day"); act.hideSaver(); CarArt.Mode.force = null
             act.showHome(1); Thread.sleep(2500); Gps.lastFix = SystemClock.elapsedRealtime(); save(act, "$name-glass-day-home2")
             act.showCarTab(1); save(act, "$name-glass-day-car-fuel")
             Prefs.theme = "night"
@@ -183,6 +194,9 @@ class ScreensTest {
         PhoneHub.setCallForTest("Mom")
         act.showHome(0); save(act, "$name-glass-call")
         PhoneHub.setCallForTest(null)
+        BreakReminder.remind(act, 125)
+        act.showHome(0); save(act, "$name-break-banner")
+        Notices.clear("break")
         if (full) {
             for (bg in listOf("city", "rain", "highway")) {
                 Prefs.background = bg

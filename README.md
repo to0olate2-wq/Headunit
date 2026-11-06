@@ -49,8 +49,14 @@ Settings → Look → **Theme**. Each theme keeps its own accent colour and home
 - **Car page:** automatic trip history with routes, fuel log and costs, service reminders, check-engine codes
   (read/clear, with OBD2), and where you last parked.
 - **While other apps are open:** speed warning chime, floating speedometer, trips keep recording.
-- **Auto-start:** opens ZLink and resumes music when the car turns on; parked screen saver; split screen with Maps
+- **Auto-start:** opens ZLink and resumes music when the car turns on; split screen with Maps
   (if the unit allows it); choose your own dock app buttons.
+- **Parked screen saver:** big dim clock, date, weather, your car in its showroom look and what's playing; moves a
+  little every minute so nothing burns in. Tap to close.
+- **Break reminder:** after 2 hours of driving (or 1½ / 3), a spoken reminder, a banner with "Find coffee" and a notification.
+- **Backup & restore:** settings, home pages, dock, places, trips, fuel and service logs in one file (Downloads, USB stick…),
+  plus a daily copy in Downloads.
+- **Updates:** tells you when a new version is out and installs it with one tap (Android asks you to confirm).
 
 ## First-time setup on the unit
 
