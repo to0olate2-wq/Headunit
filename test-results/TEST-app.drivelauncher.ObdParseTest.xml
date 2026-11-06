@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.drivelauncher.ObdParseTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-11-06T13:16:33" hostname="runnervmwuk1x" time="0.022">
+  <properties/>
+  <testcase name="noData" classname="app.drivelauncher.ObdParseTest" time="0.002"/>
+  <testcase name="speedWithEchoAndSearching" classname="app.drivelauncher.ObdParseTest" time="0.0"/>
+  <testcase name="supportedPids" classname="app.drivelauncher.ObdParseTest" time="0.007"/>
+  <testcase name="maf" classname="app.drivelauncher.ObdParseTest" time="0.001"/>
+  <testcase name="mil" classname="app.drivelauncher.ObdParseTest" time="0.0"/>
+  <testcase name="rpm" classname="app.drivelauncher.ObdParseTest" time="0.0"/>
+  <testcase name="volts" classname="app.drivelauncher.ObdParseTest" time="0.004"/>
+  <testcase name="dtcPendingAutoDetect" classname="app.drivelauncher.ObdParseTest" time="0.003"/>
+  <testcase name="dtcOldProtocolPadding" classname="app.drivelauncher.ObdParseTest" time="0.0"/>
+  <testcase name="dtcCanMultiFrame" classname="app.drivelauncher.ObdParseTest" time="0.001"/>
+  <testcase name="dtcCanSingleFrame" classname="app.drivelauncher.ObdParseTest" time="0.0"/>
+  <testcase name="canFramePrefix" classname="app.drivelauncher.ObdParseTest" time="0.0"/>
+  <testcase name="dtcNone" classname="app.drivelauncher.ObdParseTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.drivelauncher.CarLogicTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-06T13:16:26" hostname="runnervmwuk1x" time="0.045">
+  <properties/>
+  <testcase name="isDayBangkok" classname="app.drivelauncher.CarLogicTest" time="0.003"/>
+  <testcase name="fuelAverage" classname="app.drivelauncher.CarLogicTest" time="0.015"/>
+  <testcase name="speedLimitTags" classname="app.drivelauncher.CarLogicTest" time="0.016"/>
+  <testcase name="sunBangkokNovember" classname="app.drivelauncher.CarLogicTest" time="0.0"/>
+  <testcase name="serviceState" classname="app.drivelauncher.CarLogicTest" time="0.0"/>
+  <testcase name="tripDetector" classname="app.drivelauncher.CarLogicTest" time="0.0"/>
+  <testcase name="driveScore" classname="app.drivelauncher.CarLogicTest" time="0.001"/>
+  <testcase name="driveScoreDetector" classname="app.drivelauncher.CarLogicTest" time="0.001"/>
+  <testcase name="fuelRange" classname="app.drivelauncher.CarLogicTest" time="0.001"/>
+  <testcase name="dtcDescriptions" classname="app.drivelauncher.CarLogicTest" time="0.003"/>
+  <testcase name="sunLondonMidsummer" classname="app.drivelauncher.CarLogicTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
