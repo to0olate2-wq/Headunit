@@ -134,7 +134,7 @@ function bodyGeometry() {
 }
 
 /** Sub-mesh of the body (rows k0..k1 of each half, stations in [x0, x1]) pushed out along the normals, with chosen uv. */
-function patch(g, k0, k1, x0, x1, d, uvName) {
+function patch(g, k0, k1, x0, x1, d, uvName, nx = 0) {
   const { NX, RING } = g.userData;
   const P = g.attributes.position, N = g.attributes.normal, U = g.attributes[uvName];
   const pos = [], uv = [], idx = [];
@@ -155,6 +155,7 @@ function patch(g, k0, k1, x0, x1, d, uvName) {
   }
   for (let i = 0; i < NX; i++) for (let k = 0; k < RING - 1; k++) {
     const a = i * RING + k, b = a + 1, c = a + RING, dd = c + 1;
+    if (nx && ![a, b, c, dd].every(v => N.getX(v) * Math.sign(nx) > Math.abs(nx))) continue; // only faces looking forward / back
     if ([a, b, c, dd].every(v => map.has(v))) idx.push(map.get(a), map.get(c), map.get(b), map.get(b), map.get(c), map.get(dd));
   }
   const o = new THREE.BufferGeometry();
@@ -348,7 +349,7 @@ function carGroup(paint, opts) {
   const body = bodyGeometry();
   const paintMat = new THREE.MeshPhysicalMaterial({
     color: new THREE.Color(paint.color), metalness: paint.metal, roughness: paint.rough, clearcoat: 1.0, clearcoatRoughness: 0.03,
-    alphaMap: mk('paint', paintMask), alphaTest: 0.5, envMapIntensity: paint.env ?? 1.0, side: THREE.DoubleSide,
+    alphaMap: mk('paint', paintMask), alphaTest: 0.5, envMapIntensity: paint.env ?? 1.0, side: THREE.FrontSide,
   });
   const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x040507, roughness: 0.05, metalness: 0.0, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 0.25 });
   grp.add(new THREE.Mesh(body, [paintMat, glassMat]));
@@ -358,8 +359,8 @@ function carGroup(paint, opts) {
   layer(sideRows(0.0020), new THREE.MeshPhysicalMaterial({ color: 0x0b0c0e, roughness: 0.25, metalness: 0.2, clearcoat: 1 }), mk('skirt', skirtMask), 2);
   layer(sideRows(0.0026), new THREE.MeshPhysicalMaterial({ color: 0xd8dde3, roughness: 0.18, metalness: 1 }), mk('handle', handleMask), 3);
   // front and rear faces (projection from the front)
-  const nose = (d) => patch(body, 0, NF + NS, L - 0.42, L, d, 'uv1');
-  const tail = (d) => patch(body, 0, NF + NS, 0, 0.40, d, 'uv1');
+  const nose = (d) => patch(body, 0, NF + NS, L - 0.42, L, d, 'uv1', 0.30);
+  const tail = (d) => patch(body, 0, NF + NS, 0, 0.40, d, 'uv1', -0.30);
   layer(nose(0.002), new THREE.MeshPhysicalMaterial({ color: 0x06070a, roughness: 0.06, metalness: 0.4, clearcoat: 1 }), mk('fp', frontPanel), 4);
   layer(nose(0.0032), new THREE.MeshBasicMaterial({ color: new THREE.Color(opts.drl ?? 0.95, opts.drl ?? 0.97, opts.drl ?? 1.0) }), mk('fl', frontLeds), 5);
   layer(tail(0.002), new THREE.MeshPhysicalMaterial({ color: 0x0a0607, roughness: 0.06, metalness: 0.4, clearcoat: 1 }), mk('rp', rearPanel), 4);
@@ -372,6 +373,9 @@ function carGroup(paint, opts) {
     const well = new THREE.Mesh(new THREE.CylinderGeometry(ARCH_R + 0.012, ARCH_R + 0.012, 1.92, 64, 1, true, 0, Math.PI * 2),
       new THREE.MeshStandardMaterial({ color: 0x040405, roughness: 0.95, side: THREE.BackSide }));
     well.rotation.x = Math.PI / 2; well.position.set(cx, ARCH_Y, 0); grp.add(well);
+    // dark wall in the middle of the well so the arch is never see-through
+    const wall = new THREE.Mesh(new THREE.CircleGeometry(ARCH_R + 0.02, 64), new THREE.MeshStandardMaterial({ color: 0x030304, roughness: 1, side: THREE.DoubleSide }));
+    wall.position.set(cx, ARCH_Y, 0); grp.add(wall);
   }
   // mirrors
   for (const s of [1, -1]) {
@@ -438,7 +442,8 @@ window.renderWheel = (size = 512) => {
 window.renderParked = (paint, opts = {}) => {
   const s = scene();
   const car = carGroup(paint, { ...opts, wheels: true });
-  if (opts.mirror) { car.scale.y = -1; } else s.add(shadowPlane());
+  if (opts.mirror) car.scale.y = -1;   // three.js flips the face winding itself for mirrored objects
+  else s.add(shadowPlane());
   s.add(car);
   const w = opts.width || 1400, h = opts.height || 640;
   const cam = new THREE.PerspectiveCamera(opts.fov || 21, w / h, 0.1, 100);

@@ -6,6 +6,7 @@ front and back, black glass roof, turbine wheels) and renders it with a transpar
     npm install three@0.170.0
     python3 render.py out              # side_*, park_*, refl_*, wheel (Playwright + headless Chrome)
     python3 compose.py out parked      # parked_* = three-quarter view + soft floor reflection
+    python3 assets.py out parked ../../app/src/main/assets/car   # resize, WebP, tone the wheel
 
 App pictures in `app/src/main/assets/car/` (WebP, quality ~84):
 - `side_<colour>.webp` — driving look, side view without wheels, 1120 px wide;

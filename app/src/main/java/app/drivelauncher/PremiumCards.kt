@@ -359,8 +359,8 @@ object CarArt {
         shadow(c, cx, ground, fw * s * 0.47f, 0.10f * s, if (C.night) 0.85f else 0.45f)
         for (x in WHEELS) shadow(c, px(x), ground, 0.44f * s, 0.05f * s, if (C.night) 0.9f else 0.55f)
         // lamps glow around the body edges
-        glow(c, hx, hy, 0.26f * s, bc, if (C.night) 0.40f else 0.22f)
-        glow(c, px(TAIL[0]), py(TAIL[1]), 0.30f * s, 0xFFFF2B3A.toInt(), if (C.night) 0.45f else 0.22f)
+        glow(c, hx, hy, 0.18f * s, bc, if (C.night) 0.38f else 0.20f)
+        glow(c, px(TAIL[0]) + 0.04f * s, py(TAIL[1]), 0.20f * s, 0xFFFF2B3A.toInt(), if (C.night) 0.38f else 0.18f)
         rf.set(left, top, left + fw * s, top + fh * s)
         c.drawBitmap(b, null, rf, bp)
         val r = WHEEL_HALF * s
