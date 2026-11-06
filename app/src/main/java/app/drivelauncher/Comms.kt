@@ -294,7 +294,16 @@ object MessageHub {
         } catch (e: Exception) { Diag.log("reply: ${e.message}"); false }
     }
 
-    fun addForTest(m: Msg) { synchronized(recent) { recent.add(0, m) }; last = m; version++ }
+    fun addForTest(m: Msg) { synchronized(recent) { recent.removeAll { it.key == m.key }; recent.add(0, m) }; last = m; version++ }
+
+    /** App icon, or the app's first letter in a circle when the icon can't be loaded. */
+    fun appBadge(a: MainActivity, m: Msg): View {
+        val d = Apps.iconFor(a, m.pkg)
+        if (d != null) return FolderIcon(a).apply { set(listOf(d), false) }
+        return a.label(15f, C.TEXT, F.semibold).apply {
+            text = m.app.firstOrNull()?.uppercase() ?: "?"; gravity = Gravity.CENTER; background = roundBg(C.CARD2, 999f, C.BORDER2)
+        }
+    }
 }
 
 /** Reads text aloud; music is turned down while it speaks. Thai text uses a Thai voice when the unit has one. */
@@ -425,8 +434,7 @@ object Banners {
 
     private fun msgBanner(a: MainActivity, m: MessageHub.Msg): View {
         val v = shell(a)
-        val icon = FolderIcon(a).apply { set(listOf(Apps.iconFor(a, m.pkg)), false) }
-        v.addView(icon, lp(S.i(44), S.i(44)))
+        v.addView(MessageHub.appBadge(a, m), lp(S.i(44), S.i(44)))
         val col = a.vbox(2f)
         col.addView(a.label(17f, C.TEXT, F.semibold).apply { text = m.sender }, lp(MATCH, WRAP))
         col.addView(a.label(15f, C.TEXT2, F.regular, lines = 2).apply { text = m.text }, lp(MATCH, WRAP))
@@ -581,7 +589,7 @@ class MessagesCard(private val a: MainActivity) : Card {
             val row = a.hbox(10f)
             row.background = Skin.tile(C.CARD2)
             row.pad(12f, 8f)
-            row.addView(FolderIcon(a).apply { set(listOf(Apps.iconFor(a, m.pkg)), false) }, lp(S.i(32), S.i(32)))
+            row.addView(MessageHub.appBadge(a, m), lp(S.i(32), S.i(32)))
             val col = a.vbox(1f)
             col.addView(a.label(15f, C.TEXT, F.semibold).apply { text = m.sender }, lp(MATCH, WRAP))
             col.addView(a.label(14f, C.TEXT2, F.regular).apply { text = m.text }, lp(MATCH, WRAP))

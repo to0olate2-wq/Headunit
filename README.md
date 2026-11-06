@@ -39,6 +39,11 @@ Settings → Look → **Theme**. Each theme keeps its own accent colour and home
 - **Quick destinations:** Home, Work, saved places, nearest fuel / coffee / food / parking (opens Google Maps or Waze).
 - **Speed-based volume**, **fuel range** (OBD2 fuel level or the fuel log), **drive score** with tips for each trip.
 - **App drawer:** search, sort (A–Z, most used, newest), hide apps, folders; Android **icon packs** (ADW/Nova format).
+- **Floating pill over ZLink and Maps:** speedometer, next turn and a mini music player (each can be turned on separately).
+- **Live wallpapers** (city lights, rain on glass, night highway that speeds up as you drive) or **your own video**.
+- **Phone card:** favourite contacts, recent calls, call banner with answer / decline (from the unit's Bluetooth phone app).
+- **Messages:** banner and card for new chat messages on the unit, read aloud (Thai voice if installed), optional
+  automatic "I'm driving" reply through the app's own reply button. Calls and messages inside ZLink stay in ZLink.
 - **Day/night look** following sunrise and sunset, with optional automatic brightness; plain, starry or photo backgrounds.
 - **Car page:** automatic trip history with routes, fuel log and costs, service reminders, check-engine codes
   (read/clear, with OBD2), and where you last parked.

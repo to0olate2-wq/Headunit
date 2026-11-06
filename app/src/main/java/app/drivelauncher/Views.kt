@@ -855,8 +855,11 @@ object LiveScenes {
         // city glow on the horizon
         p.shader = RadialGradient(vx, hy, w * 0.5f, intArrayOf(0x66FF9A5C, 0x22FF6A5C, 0x00000000), null, Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w, hy, p)
-        p.shader = LinearGradient(0f, hy, 0f, h, 0xFF0A0B10.toInt(), 0xFF020203.toInt(), Shader.TileMode.CLAMP)
+        p.shader = LinearGradient(0f, hy, 0f, h, 0xFF16111C.toInt(), 0xFF020203.toInt(), Shader.TileMode.CLAMP)
         c.drawRect(0f, hy, w, h, p)
+        // soft haze where the sky meets the land
+        p.shader = LinearGradient(0f, hy - h * 0.07f, 0f, hy + h * 0.09f, intArrayOf(0x002A1A2E, 0xCC2A1A2E.toInt(), 0x002A1A2E), null, Shader.TileMode.CLAMP)
+        c.drawRect(0f, hy - h * 0.07f, w, hy + h * 0.09f, p)
         // road surface
         path.reset(); path.moveTo(vx - w * 0.02f, hy); path.lineTo(vx + w * 0.02f, hy); path.lineTo(w * 1.05f, h); path.lineTo(-w * 0.05f, h); path.close()
         p.shader = LinearGradient(0f, hy, 0f, h, 0xFF15161C.toInt(), 0xFF0B0B0F.toInt(), Shader.TileMode.CLAMP)

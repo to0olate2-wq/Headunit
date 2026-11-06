@@ -17,7 +17,7 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
 - Push `main` → CI builds `assembleRelease`, runs `testReleaseUnitTest` (OBD parser tests + `ScreensTest`, which
   starts the launcher in Robolectric at 1280×720, 1024×600 and 768×1024 and saves PNGs). Release `build-<run>`
   is published only if both pass. Results: shallow-clone branch `ci-results` (status.txt, logs, screens/, test-results/).
-- `versionCode = 1000 + run` (earlier test builds from the Project repo went up to ~170). `versionName = 0.5.<run>`. Same signing key
+- `versionCode = 1000 + run` (earlier test builds from the Project repo went up to ~170). `versionName = 0.6.<run>`. Same signing key
   (`signing/`) for every build so updates install over the old one.
 
 ## Layout (`app/src/main/java/app/drivelauncher/`)
@@ -48,6 +48,13 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
 - `Roads.kt`: `RoadLimit` (Overpass ways in a ~2 km box, matched locally per fix; numeric `maxspeed` only), `SpeedSign`,
   `SpeedSignView`, `SpeedVolume`. `Places.kt`: quick destinations (Maps/Waze intents). `Car.kt`: `DriveScore`, `FuelRange`.
   `AppsPage.kt`: drawer (search, sort, hidden, folders in Prefs `hiddenApps`/`folders`/`appUses`), `IconPack` in `Apps.kt`.
+- `Comms.kt` (0.6): `PhoneHub` (favourites JSON `phoneFavs`, CallLog, dial via ACTION_CALL/DIAL, call banner from any
+  notification with CATEGORY_CALL / CallStyle / answer-hangup actions), `MessageHub` (chat notifications → banner, card,
+  `Speaker` TTS with ducking, auto-reply via RemoteInput, never to groups, once per chat per 20 min), `Banners` (top of
+  the launcher, `MainActivity.bannerBox`), `PhoneCard`, `MessagesCard`. Listener order: Nav → Phone → Message → Media.
+- `Overlay` + `FloatPanel` (DriveService.kt): one draggable pill over other apps with speed (`bubble`), next turn
+  (`floatTurn`) and mini player (`floatMusic`). `LiveScenes` (city/rain/highway) and `VideoBackground` (TextureView +
+  MediaPlayer, persisted document URI `videoUri`) in Views.kt; background picker is a list in Settings → Look.
 - `PremiumCards.kt`: `HeroView`/`HeroCard` (clock, big speed, 3 stats, `CarArt` side-view car), `DialView`
   (sport: analog instrument; others: slim arc), `RpmCard`, `SpeedDialCard` (speed card in sport), `NavCard`, `StatsCard`.
   Layouts `aurora` [hero, nav, media] and `cockpit` [rpm, nav, media, stats, speed]; `HomePages.standard()` per skin.
