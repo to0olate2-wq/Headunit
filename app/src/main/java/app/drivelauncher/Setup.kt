@@ -176,7 +176,7 @@ class SetupView(private val a: MainActivity, private val onClose: () -> Unit) : 
     private val finish: TextView
 
     init {
-        setBackgroundColor(withAlpha(if (C.night) 0xFF05070B.toInt() else 0xFF0A1220.toInt(), 0.97f))
+        setBackgroundColor(if (C.night) 0xFF05070B.toInt() else 0xFF0A1220.toInt())
         isClickable = true
         val portrait = a.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
         val box = a.vbox(10f)
