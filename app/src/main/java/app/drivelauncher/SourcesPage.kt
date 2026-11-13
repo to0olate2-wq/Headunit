@@ -315,6 +315,8 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         row(sys, "OBD2 adapter", button("Choose adapter").apply { setOnClickListener { a.chooseObd() } })
         row(sys, "Music & navigation info", button("Notification access").apply { setOnClickListener { a.openNotificationAccess() } })
         row(sys, "Use as home screen", button("Default launcher").apply { setOnClickListener { a.openHomeSettings() } })
+        row(sys, "Setup guide: every permission in one place, with a tick when it's done",
+            button("Open setup guide").apply { setOnClickListener { a.showSetup() } })
 
         // diagnostics
         val d = a.vbox(10f)
@@ -417,6 +419,8 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         if (now - diagAt > 1500) {
             diagAt = now
             val sb = StringBuilder(diagText())
+            val crashes = Crash.text.lines().filter { it.startsWith("=== Crash") }
+            sb.append("\nCrashes: ").append(if (crashes.isEmpty()) "none" else "${crashes.size}, last: " + crashes[0].removePrefix("=== Crash "))
             sb.append("\n\nRecent notifications:\n")
             for (n in Diag.recentNotes(10)) sb.append("• ").append(n.pkg).append(" | ").append(n.title).append(" | ").append(n.text.take(60)).append(" | ").append(n.flags).append('\n')
             sb.append("\nLog:\n")

@@ -82,7 +82,7 @@ open class MainActivity : Activity() {
             if (tickCount % 40 == 0) checkTheme(false)
             CarArt.Mode.track(if (Gps.fresh) Gps.speedKmh else Obd.v("speed"))
             if (!dashMode) Updater.tick(this@MainActivity)
-            checkSaver()
+            if (setup == null) checkSaver() else setup?.refresh()
             if (resumed) handler.postDelayed(this, 250)
         }
     }
@@ -125,7 +125,7 @@ open class MainActivity : Activity() {
         setContentView(root)
         applyFullscreen()
         if (!dashMode) {
-            requestPerms(false)
+            if (Prefs.gb("setupDone", false)) requestPerms(false) // first start: the setup guide asks, one step at a time
             AutoStart.onLauncherStart(this)
         }
         Gps.start(this)
@@ -177,6 +177,10 @@ open class MainActivity : Activity() {
         }
         root.addView(col, flp(MATCH, MATCH))
         buildSaver()
+        if (setup != null) { // rebuilt at the new size
+            val v = SetupView(this) { closeSetup() }
+            root.addView(v, flp(MATCH, MATCH)); setup = v
+        }
         if (!dashMode) bannerBox?.let { root.addView(it, flp(MATCH, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL)) }
         show(page)
         Diag.log("layout ${w}x$h scale ${fmt("%.2f", S.u)} ${if (portrait) "portrait" else "landscape"}, ${pages.size} home pages")
@@ -284,6 +288,38 @@ open class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- screen saver
 
+    // ---- setup guide
+
+    private var setup: SetupView? = null
+
+    /** Opens the setup guide over everything (first start, or Settings → Setup guide). */
+    fun showSetup() {
+        if (setup != null || dashMode) return
+        hideSaver()
+        val v = SetupView(this) { closeSetup() }
+        root.addView(v, flp(MATCH, MATCH))
+        setup = v
+    }
+
+    fun closeSetup() {
+        setup?.let { root.removeView(it) }
+        setup = null
+        Gps.start(this); DriveService.start(this); MediaHub.tryAttach()
+    }
+
+    /** Asks Android to let the background service keep running. */
+    @SuppressLint("BatteryLife")
+    fun askKeepRunning() {
+        if (!tryStart(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")),
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)))
+            Toast.makeText(this, "Open Settings › Apps › Drive Launcher › Battery › Unrestricted", Toast.LENGTH_LONG).show()
+    }
+
+    fun openInstallSettings() {
+        if (!tryStart(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))))
+            openAppSettings()
+    }
+
     private fun buildSaver() {
         val v = SaverView(this)
         v.visibility = View.GONE
@@ -343,6 +379,11 @@ open class MainActivity : Activity() {
         ThemeMgr.applyBrightness(this, C.night)
         handler.removeCallbacks(tick)
         handler.post(tick)
+        setup?.refresh()
+        if (!dashMode) {
+            Crash.announce(this)
+            if (setup == null && Setup.shouldShow(this)) showSetup()
+        }
         if (dashMode && !splitTried) {
             splitTried = true
             handler.postDelayed({ launchSplitApp() }, 600)

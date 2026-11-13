@@ -65,6 +65,13 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
   `BreakReminder` (DriveService tick; 15 min stop resets; voice + notice + notification), `SaverView` (parked screen
   saver, always dark, drifts each minute; `MainActivity.showSaver/hideSaver`). Tests set `Prefs.saverMin = 0` and
   `Prefs.autoUpdate = false`; `CareTest` covers backup/restore, update answers, reminder wording.
+- `Setup.kt` (0.6.17+): `App` (Application, installs `Crash` first; skipped under Robolectric), `Crash` (uncaught
+  handler → `files/crash.txt` + Diag, restart via AlarmManager: MainActivity if `Overlay.launcherVisible`, else only
+  DriveService; >2 crashes in 2 min = no restart; `crashUnseen` → "restarted after a problem" notice with Save report;
+  reports go into `Diag.dump` and the diagnostics box), `Setup` steps + `SetupView` (guide over the launcher; shown on
+  start while pref `setupDone` is false and a needed step — location, notification access, home app — is missing;
+  Settings → Connections → Setup guide). Permissions are no longer requested at first start (the guide asks).
+  Tests set `setupDone = true`.
 - `Overlay` + `FloatPanel` (DriveService.kt): one draggable pill over other apps with speed (`bubble`), next turn
   (`floatTurn`) and mini player (`floatMusic`). `LiveScenes` (city/rain/highway) and `VideoBackground` (TextureView +
   MediaPlayer, persisted document URI `videoUri`) in Views.kt; background picker is a list in Settings → Look.

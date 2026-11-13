@@ -60,6 +60,10 @@ Settings → Look → **Theme**. Each theme keeps its own accent colour and home
 
 ## First-time setup on the unit
 
+The app opens a **setup guide** the first time: each permission has an *Allow* button and a tick when done
+(Settings → Connections → Setup guide opens it again). If the app ever crashes it restarts by itself and offers
+to save a report to Downloads.
+
 1. Install the APK (allow "unknown sources" if asked).
 2. Open it, allow location (and Bluetooth).
 3. Settings (sliders icon) → **Notification access** → turn on *Drive Launcher* — needed for music and turn info.

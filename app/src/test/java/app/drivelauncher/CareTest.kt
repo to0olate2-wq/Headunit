@@ -90,6 +90,15 @@ class CareTest {
         assertFalse(Updater.available)
     }
 
+    @Test fun crashReportAndLoopGuard() {
+        val r = Crash.report("main", IllegalStateException("boom"), 0L)
+        assertTrue(r.startsWith("=== Crash "))
+        assertTrue(r.contains("IllegalStateException: boom"))
+        assertTrue(Crash.shouldRestart(listOf(1L)))
+        assertTrue(Crash.shouldRestart(listOf(1L, 2L)))
+        assertFalse(Crash.shouldRestart(listOf(1L, 2L, 3L)))
+    }
+
     @Test fun breakWords() {
         assertEquals("2 hours", BreakReminder.spoken(120))
         assertEquals("2 hours", BreakReminder.spoken(123))

@@ -127,6 +127,7 @@ class ScreensTest {
         Prefs.obdMode = "off"
         Prefs.saverMin = 0       // the saver is shown on purpose below
         Prefs.autoUpdate = false // no real update checks from the tests
+        Prefs.sb("setupDone", true) // the guide is shown on purpose below
         Prefs.theme = "night"
         Prefs.skin = Skin.GLASS
         Prefs.pages = glassJson
@@ -147,6 +148,8 @@ class ScreensTest {
         act.showHome(0); save(act, "$name-glass-home1")
         CarArt.Mode.force = false; act.showHome(0); save(act, "$name-glass-parked")
         act.showSaver(); save(act, "$name-saver"); act.hideSaver()
+        act.showSetup(); save(act, "$name-setup"); act.closeSetup()
+        Prefs.si("crashUnseen", 1); Crash.announce(act); act.showHome(0); save(act, "$name-crash-banner"); Notices.clear("crash")
         // update banner (shown only while parked)
         Updater.parse(org.json.JSONObject("""{"tag_name":"build-99999","name":"Drive Launcher 0.6.99999","body":"New premium car with driving and parked looks\n\n- more","assets":[{"name":"DriveLauncher.apk","browser_download_url":"https://example.invalid/DriveLauncher.apk"}]}"""))
         Updater.tick(act); act.showHome(0); save(act, "$name-update-banner")
