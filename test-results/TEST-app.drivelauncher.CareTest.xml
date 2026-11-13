@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.drivelauncher.CareTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-13T06:45:18" hostname="runnervmwuk1x" time="6.061">
+  <properties/>
+  <testcase name="restoreRefusesOtherFiles" classname="app.drivelauncher.CareTest" time="5.854"/>
+  <testcase name="updateAnswer" classname="app.drivelauncher.CareTest" time="0.038"/>
+  <testcase name="backupRoundTrip" classname="app.drivelauncher.CareTest" time="0.089"/>
+  <testcase name="restoreStaysInsideTheAppFolder" classname="app.drivelauncher.CareTest" time="0.027"/>
+  <testcase name="crashReportAndLoopGuard" classname="app.drivelauncher.CareTest" time="0.029"/>
+  <testcase name="breakWords" classname="app.drivelauncher.CareTest" time="0.023"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
