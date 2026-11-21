@@ -54,6 +54,9 @@ Settings → Look → **Theme**. Each theme keeps its own accent colour and home
 - **Parked screen saver:** big dim clock, date, weather, your car in its showroom look and what's playing; moves a
   little every minute so nothing burns in. Tap to close.
 - **Break reminder:** after 2 hours of driving (or 1½ / 3), a spoken reminder, a banner with "Find coffee" and a notification.
+- **Safe on TS10-type units:** never opens Android's hidden Settings app (it can freeze some units); the Home app is
+  chosen with Android's own pop-up. Settings → Connections → *Leave Drive Launcher* goes back to the unit's own home screen.
+- **Wi-Fi and Bluetooth icons** in the bottom bar (bright = connected, dim = on, faint = off).
 - **Backup & restore:** settings, home pages, dock, places, trips, fuel and service logs in one file (Downloads, USB stick…),
   plus a daily copy in Downloads.
 - **Updates:** tells you when a new version is out and installs it with one tap (Android asks you to confirm).

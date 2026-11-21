@@ -72,6 +72,13 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
   start while pref `setupDone` is false and a needed step — location, notification access, home app — is missing;
   Settings → Connections → Setup guide). Permissions are no longer requested at first start (the guide asks).
   Tests set `setupDone = true`.
+- `SafeSettings.kt` (0.6.22): TS10 lesson (from StradaOS notes; GPL, ideas only, no code): on a TS10 UIS7862S Android 14,
+  opening Android's hidden Settings (`ACTION_SETTINGS`) froze the screen black until restart. On Android 10+ general
+  Settings screens (Wi-Fi, BT, Home) open only if `com.android.settings` is in the launcher app list, else the brand's
+  settings app. Home app: `RoleManager.createRequestRoleIntent(ROLE_HOME)` (REQ_HOME); Android 8–9: `FakeHome`
+  (disabled HOME activity enabled for 1.5 s → chooser). `leaveLauncher()` (Settings → Connections): open the unit's
+  launcher / stop being home / uninstall. Dock Wi-Fi + BT icons (`wifiState`, `btState`; tap = settings safely).
+  AVRCP `TRACK_EVENT` song info was already in `MediaHub` broadcasts.
 - `Overlay` + `FloatPanel` (DriveService.kt): one draggable pill over other apps with speed (`bubble`), next turn
   (`floatTurn`) and mini player (`floatMusic`). `LiveScenes` (city/rain/highway) and `VideoBackground` (TextureView +
   MediaPlayer, persisted document URI `videoUri`) in Views.kt; background picker is a list in Settings → Look.
