@@ -300,8 +300,7 @@ class AppsPage(private val a: MainActivity, widthPx: Int) {
             try { a.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", pkg, null))) } catch (_: Exception) {}
         })
         opts.add("Uninstall" to {
-            // Android's app info page has the Uninstall button (no uninstall permission needed)
-            try { a.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", pkg, null))) } catch (_: Exception) {}
+            try { a.startActivity(Intent(Intent.ACTION_DELETE, Uri.fromParts("package", pkg, null))) } catch (_: Exception) {}
         })
         a.dialog().setTitle(ri.loadLabel(a.packageManager)).setItems(opts.map { it.first }.toTypedArray()) { _, i -> opts[i].second() }.show()
     }

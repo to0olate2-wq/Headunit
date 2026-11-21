@@ -11,6 +11,7 @@ import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.graphics.Canvas
 import android.graphics.LinearGradient
@@ -196,7 +197,7 @@ object Backup {
 
 // ------------------------------------------------------------------ updates
 
-/** Looks for a newer release on GitHub; "Download" opens it in the browser (the app never installs anything itself). */
+/** Looks for a newer release on GitHub and installs it with one tap (Android asks to confirm). */
 object Updater {
     private const val API = "https://api.github.com/repos/to0olate2-wq/Headunit/releases/latest"
     private const val APK = "DriveLauncher.apk"
@@ -221,7 +222,7 @@ object Updater {
 
     fun buttonText(): String = when {
         busy -> status
-        available -> "Download $latestName"
+        available -> "Update to $latestName"
         else -> "Check for updates"
     }
 
@@ -238,7 +239,7 @@ object Updater {
         if (Prefs.autoUpdate && !busy && (lastTry == 0L || now - lastTry > 6 * 3600_000L) && online(a)) check()
         val show = available && !busy && now > laterUntil && !CarArt.Mode.driving()
         if (show && Notices.current == null)
-            Notices.post(Notices.N("update", Ic.REFRESH, "Drive Launcher $latestName is ready", highlights(), "Download", 0L) { download(it) })
+            Notices.post(Notices.N("update", Ic.REFRESH, "Drive Launcher $latestName is ready", highlights(), "Update", 0L) { install(it) })
         else if (!show) Notices.clear("update")
     }
 
@@ -292,13 +293,95 @@ object Updater {
     /** The release notes' first lines, for the banner. */
     fun highlights(): String = notes.lineSequence().map { it.trim().removePrefix("- ").trim() }.firstOrNull { it.isNotEmpty() } ?: ""
 
-    /** Opens the new version's download in the browser; Android installs it from there. */
-    fun download(a: MainActivity) {
+    fun install(a: MainActivity) {
+        if (busy) return
         if (!available) { check(); return }
+        if (!a.packageManager.canRequestPackageInstalls()) {
+            Toast.makeText(a, "Allow \"Install unknown apps\" for Drive Launcher, then tap Update again.", Toast.LENGTH_LONG).show()
+            try { a.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + a.packageName))) }
+            catch (_: Exception) { a.openAppSettings() }
+            return
+        }
+        busy = true
+        status = "Downloading…"
         Notices.clear("update")
+        val app = a.applicationContext
         val url = apkUrl
-        try { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-        catch (_: Exception) { Toast.makeText(a, "No web browser found to download the update", Toast.LENGTH_LONG).show() }
+        Thread {
+            try {
+                val f = File(app.cacheDir, "update.apk")
+                download(url, f)
+                val info = app.packageManager.getPackageArchiveInfo(f.path, 0) ?: throw IOException("the download isn't a working app")
+                if (info.packageName != app.packageName) throw IOException("the download is a different app")
+                status = "Installing…"
+                val pi = app.packageManager.packageInstaller
+                val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+                params.setAppPackageName(app.packageName)
+                if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+                val id = pi.createSession(params)
+                pi.openSession(id).use { s ->
+                    s.openWrite(APK, 0, f.length()).use { out -> f.inputStream().use { it.copyTo(out) }; s.fsync(out) }
+                    val back = Intent(app, UpdateReceiver::class.java)
+                    val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
+                    s.commit(PendingIntent.getBroadcast(app, id, back, flags).intentSender)
+                }
+                Diag.log("update: $latestName downloaded, installing")
+            } catch (e: Exception) {
+                failed(e.message ?: e.javaClass.simpleName)
+            }
+        }.start()
+    }
+
+    private fun download(url: String, f: File) {
+        val con = URL(url).openConnection() as HttpURLConnection
+        con.connectTimeout = 15_000; con.readTimeout = 30_000
+        con.setRequestProperty("User-Agent", "DriveLauncher/${BuildConfig.VERSION_NAME}")
+        if (con.responseCode != 200) throw IOException("download answered ${con.responseCode}")
+        val total = con.contentLengthLong
+        var got = 0L
+        con.inputStream.use { inp ->
+            FileOutputStream(f).use { out ->
+                val buf = ByteArray(64 * 1024)
+                while (true) {
+                    val n = inp.read(buf)
+                    if (n < 0) break
+                    out.write(buf, 0, n)
+                    got += n
+                    if (total > 0) status = "Downloading ${got * 100 / total}%"
+                }
+            }
+        }
+        if (total > 0 && got != total) throw IOException("download cut short")
+    }
+
+    fun failed(why: String) {
+        status = "Update failed: $why"
+        busy = false
+        Diag.log("update: $why")
+    }
+
+    fun waiting() { status = "Waiting for you to confirm…" }
+}
+
+/** Android's answer about the update install. */
+class UpdateReceiver : BroadcastReceiver() {
+    override fun onReceive(c: Context, i: Intent) {
+        when (val st = i.getIntExtra(PackageInstaller.EXTRA_STATUS, -999)) {
+            PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                val confirm: Intent? = if (Build.VERSION.SDK_INT >= 33) i.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+                    else @Suppress("DEPRECATION") i.getParcelableExtra(Intent.EXTRA_INTENT)
+                if (confirm == null) { Updater.failed("no confirm screen"); return }
+                Updater.waiting()
+                try { c.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                catch (e: Exception) { Updater.failed("couldn't open the installer (${e.message})") }
+            }
+            PackageInstaller.STATUS_SUCCESS -> Diag.log("update installed")
+            else -> {
+                val msg = i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "status $st"
+                Updater.failed(if (st == PackageInstaller.STATUS_FAILURE_ABORTED) "cancelled" else msg)
+                Toast.makeText(c, "Update not installed: ${if (st == PackageInstaller.STATUS_FAILURE_ABORTED) "cancelled" else msg}", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 }
 

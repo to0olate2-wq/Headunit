@@ -53,7 +53,7 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
 - `Roads.kt`: `RoadLimit` (Overpass ways in a ~2 km box, matched locally per fix; numeric `maxspeed` only), `SpeedSign`,
   `SpeedSignView`, `SpeedVolume`. `Places.kt`: quick destinations (Maps/Waze intents). `Car.kt`: `DriveScore`, `FuelRange`.
   `AppsPage.kt`: drawer (search, sort, hidden, folders in Prefs `hiddenApps`/`folders`/`appUses`), `IconPack` in `Apps.kt`.
-- `Comms.kt` (0.6): `PhoneHub` (favourites JSON `phoneFavs`, contact picker without READ_CONTACTS, dial via ACTION_DIAL, call banner from any
+- `Comms.kt` (0.6): `PhoneHub` (favourites JSON `phoneFavs`, CallLog, dial via ACTION_CALL/DIAL, call banner from any
   notification with CATEGORY_CALL / CallStyle / answer-hangup actions), `MessageHub` (chat notifications → banner, card,
   `Speaker` TTS with ducking, auto-reply via RemoteInput, never to groups, once per chat per 20 min), `Banners` (top of
   the launcher, `MainActivity.bannerBox`), `PhoneCard`, `MessagesCard`. Listener order: Nav → Phone → Message → Media.
@@ -61,7 +61,7 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
   `Banners`), `Backup` (zip = `backup.json` with every pref + `files/`; manual via SAF or `toDownloads` (MediaStore,
   same file updated), daily `auto` from DriveService, `restore` then `restart` = kill process, no onPause, so the old
   trip isn't saved over it), `Updater` (GitHub `releases/latest`, `build-<run>` vs `VERSION_CODE - 1000`, every 6 h,
-  banner only when parked; "Download" opens the APK link in the browser — the app never installs APKs itself),
+  banner only when parked; download → `PackageInstaller` session → `UpdateReceiver` opens Android's confirm screen),
   `BreakReminder` (DriveService tick; 15 min stop resets; voice + notice + notification), `SaverView` (parked screen
   saver, always dark, drifts each minute; `MainActivity.showSaver/hideSaver`). Tests set `Prefs.saverMin = 0` and
   `Prefs.autoUpdate = false`; `CareTest` covers backup/restore, update answers, reminder wording.
@@ -87,9 +87,10 @@ Pinned source → playing media session → playing notification track (ZLink/BT
 Controls: session transport → notification actions (by name, or position when 3) → media key events.
 
 ## Pitfalls already met
-- **Play Protect "Harmful app" (0.6.18):** don't add back self-installing updates (REQUEST_INSTALL_PACKAGES /
-  PackageInstaller), READ_CALL_LOG, READ_CONTACTS, CALL_PHONE or REQUEST_DELETE_PACKAGES. Notification access is needed
-  and triggers the separate sideload block in some countries (owner turns Play Protect off briefly to install).
+- **Play Protect "App blocked to protect your device"** ("can request access to sensitive data"): Google's
+  fraud block for sideloaded apps that declare a notification listener (Thailand and other countries). Not fixable in
+  the app without losing notification access: the owner turns Play Protect off briefly (or installs with adb).
+  0.6.19 removed call log / contacts / self-install by mistake; 0.6.20 put them back.
 - `isSingleLine = true` replaces the all-caps transformation: set caps after it (`Ui.label`).
 - `/*` inside a KDoc comment (e.g. `*.png`) opens a nested comment → "Unclosed comment".
 - Robolectric needs `android.useAndroidX=true` in gradle.properties.

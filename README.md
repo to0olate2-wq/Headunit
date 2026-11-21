@@ -42,7 +42,7 @@ Settings → Look → **Theme**. Each theme keeps its own accent colour and home
 - **App drawer:** search, sort (A–Z, most used, newest), hide apps, folders; Android **icon packs** (ADW/Nova format).
 - **Floating pill over ZLink and Maps:** speedometer, next turn and a mini music player (each can be turned on separately).
 - **Live wallpapers** (city lights, rain on glass, night highway that speeds up as you drive) or **your own video**.
-- **Phone card:** favourite contacts, call banner with answer / decline (from the unit's Bluetooth phone app).
+- **Phone card:** favourite contacts, recent calls, call banner with answer / decline (from the unit's Bluetooth phone app).
 - **Messages:** banner and card for new chat messages on the unit, read aloud with the unit's voice, optional
   automatic "I'm driving" reply through the app's own reply button. Calls and messages inside ZLink stay in ZLink.
 - **Day/night look** following sunrise and sunset, with optional automatic brightness; plain, starry or photo backgrounds.
@@ -56,7 +56,7 @@ Settings → Look → **Theme**. Each theme keeps its own accent colour and home
 - **Break reminder:** after 2 hours of driving (or 1½ / 3), a spoken reminder, a banner with "Find coffee" and a notification.
 - **Backup & restore:** settings, home pages, dock, places, trips, fuel and service logs in one file (Downloads, USB stick…),
   plus a daily copy in Downloads.
-- **Updates:** tells you when a new version is out; *Download* opens it in the browser.
+- **Updates:** tells you when a new version is out and installs it with one tap (Android asks you to confirm).
 
 ## First-time setup on the unit
 
