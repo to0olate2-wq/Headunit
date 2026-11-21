@@ -19,6 +19,9 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
     private val vol = Bar(a)
     private val gpsDot: TextView = status("GPS")
     private val obdDot: TextView = status("OBD")
+    private val wifi = IconBtn(a, Ic.WIFI, 22f).apply { contentDescription = "Wi-Fi"; setOnClickListener { SafeSettings.tapWifi(a) } }
+    private val bt = IconBtn(a, Ic.BT, 22f).apply { contentDescription = "Bluetooth"; setOnClickListener { SafeSettings.tapBt(a) } }
+    private var radios = -1
     private val extra: TextView = a.label(13f, C.MUTED, F.regular).tnum()
     private val dots = Dots(a)
     private val clock: TextView = a.label(when (Skin.id) { Skin.SPORT -> 24f; Skin.LUX -> 26f; Skin.GLASS -> 20f; else -> 18f }, C.TEXT,
@@ -93,6 +96,7 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
             val st = a.hbox(14f)
             st.pad(6f, 0f)
             st.addView(gpsDot, lp(WRAP, WRAP)); st.addView(obdDot, lp(WRAP, WRAP))
+            st.addView(wifi, lp(S.i(36), S.i(36))); st.addView(bt, lp(S.i(36), S.i(36)))
             if (Skin.id == Skin.CLASSIC) st.addView(extra, lp(WRAP, WRAP))
             view.addView(st, lp(WRAP, WRAP))
         }
@@ -156,6 +160,17 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
         vol.frac = Vol.frac(a)
         dot(gpsDot, Gps.fresh)
         dot(obdDot, Obd.connected)
+        // Wi-Fi and Bluetooth: bright = connected, dim = on, faint = off
+        val r = SafeSettings.wifiState(a) * 3 + SafeSettings.btState(a)
+        if (r != radios) {
+            radios = r
+            for ((b, st) in listOf(wifi to r / 3, bt to r % 3)) {
+                b.fg = when (st) { 2 -> C.accent; 1 -> C.TEXT2; else -> C.MUTED }
+                b.alpha = if (st == 0) 0.45f else 1f
+                b.contentDescription = (if (b === wifi) "Wi-Fi" else "Bluetooth") + when (st) { 2 -> ", connected"; 1 -> ", on"; else -> ", off" }
+                b.invalidate()
+            }
+        }
         val v = Obd.v("volt")
         val m = Obd.v("map")
         extra.put(when {

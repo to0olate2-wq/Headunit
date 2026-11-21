@@ -315,6 +315,7 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         row(sys, "OBD2 adapter", button("Choose adapter").apply { setOnClickListener { a.chooseObd() } })
         row(sys, "Music & navigation info", button("Notification access").apply { setOnClickListener { a.openNotificationAccess() } })
         row(sys, "Use as home screen", button("Default launcher").apply { setOnClickListener { a.openHomeSettings() } })
+        row(sys, "Back to the unit's own home screen, or uninstall", button("Leave Drive Launcher").apply { setOnClickListener { a.leaveLauncher() } })
         row(sys, "Setup guide: every permission in one place, with a tick when it's done",
             button("Open setup guide").apply { setOnClickListener { a.showSetup() } })
 

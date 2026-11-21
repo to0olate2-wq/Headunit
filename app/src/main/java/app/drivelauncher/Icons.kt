@@ -9,7 +9,7 @@ enum class Ic {
     HOME, MINUS, PLUS, GRID, MIC, PIN, MUSIC, PHONE, SLIDERS, PLAY, PAUSE, PREV, NEXT,
     SHUFFLE, QUEUE, REFRESH, TURN_RIGHT, NAV, LOCATE, MOON, SUN, CLOUD, RAIN, CHECK, PLUG,
     CAR, TIRE, LINK, GAUGE, BT, CLOSE, OPEN, SOURCE, DASH, SPLIT, BACK, FUEL, WRENCH, ENGINE, PARK, ROUTE, TRASH, EDIT,
-    WORK, STAR, COFFEE, FOOD, SEARCH, FOLDER, HIDE, SORT, LEAF, SPEAKER, SEND, VIDEO
+    WORK, STAR, COFFEE, FOOD, SEARCH, FOLDER, HIDE, SORT, LEAF, SPEAKER, SEND, VIDEO, WIFI
 }
 
 /** Stroke icons drawn on a 24x24 grid (same shapes as the mockup). */
@@ -165,6 +165,10 @@ object Icons {
                 c.drawCircle(12f, 14f, 1.2f, fp)
             }
             Ic.BT -> poly(c, 7f, 7f, 17f, 17f, 12f, 21f, 12f, 3f, 17f, 7f, 7f, 17f)
+            Ic.WIFI -> {
+                for (r in floatArrayOf(4.5f, 9f, 13.5f)) { rf.set(12f - r, 19f - r, 12f + r, 19f + r); c.drawArc(rf, 225f, 90f, false, sp) }
+                c.drawCircle(12f, 19f, 1f, sp)
+            }
             Ic.CLOSE -> { c.drawLine(6f, 6f, 18f, 18f, sp); c.drawLine(18f, 6f, 6f, 18f, sp) }
             Ic.OPEN -> {
                 poly(c, 14f, 4f, 20f, 4f, 20f, 10f)

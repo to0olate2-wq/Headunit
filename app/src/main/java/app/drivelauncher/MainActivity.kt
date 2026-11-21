@@ -620,6 +620,7 @@ open class MainActivity : Activity() {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
         when (requestCode) {
+            REQ_HOME -> { Diag.log("home role answer: $resultCode, home = ${Setup.isHome(this)}"); setup?.refresh() }
             REQ_LOGO, REQ_BG -> {
                 val uri = data?.data ?: return
                 if (resultCode != RESULT_OK) return
@@ -843,9 +844,48 @@ open class MainActivity : Activity() {
         }
     }
 
+    /**
+     * Make Drive Launcher the Home app. Android 10+: Android's own "Set as home app" pop-up (no Settings screen).
+     * Android 8–9: briefly add a second home screen so Android shows "Which app?" (choose Drive Launcher → Always).
+     */
     fun openHomeSettings() {
-        if (!tryStart(Intent(Settings.ACTION_HOME_SETTINGS), Intent(Settings.ACTION_SETTINGS)))
-            Toast.makeText(this, "Open Settings › Apps › Default apps › Home app", Toast.LENGTH_LONG).show()
+        if (Build.VERSION.SDK_INT >= 29) {
+            try {
+                val rm = getSystemService(android.app.role.RoleManager::class.java)
+                if (rm != null && rm.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {
+                    @Suppress("DEPRECATION")
+                    startActivityForResult(rm.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME), REQ_HOME)
+                    return
+                }
+            } catch (e: Exception) { Diag.log("home role: ${e.message}") }
+            if (SafeSettings.androidSettingsShown(this) && tryStart(Intent(Settings.ACTION_HOME_SETTINGS))) return
+            Toast.makeText(this, "Press the Home button and choose Drive Launcher → Always", Toast.LENGTH_LONG).show()
+            return
+        }
+        SafeSettings.askHomeOldAndroid(this)
+    }
+
+    /** Settings → Leave Drive Launcher: back to the unit's own home screen if something goes wrong. */
+    fun leaveLauncher() {
+        val homes = SafeSettings.otherHomes(this)
+        val items = ArrayList<Pair<String, () -> Unit>>()
+        for (h in homes) {
+            val label = h.loadLabel(packageManager).toString()
+            items.add("Open \"$label\" (the unit's home screen)" to {
+                tryStart(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+                    .setClassName(h.activityInfo.packageName, h.activityInfo.name))
+            })
+        }
+        if (homes.isNotEmpty()) items.add("Stop using Drive Launcher as the home screen" to {
+            confirm("Stop using Drive Launcher?", "The unit's own home screen opens instead. You can come back from the app list any time.") {
+                SafeSettings.stopBeingHome(this, homes[0])
+            }
+        })
+        items.add("Uninstall Drive Launcher" to {
+            tryStart(Intent(Intent.ACTION_DELETE, Uri.fromParts("package", packageName, null)))
+        })
+        dialog().setTitle("Leave Drive Launcher").setItems(items.map { it.first }.toTypedArray()) { _, i -> items[i].second() }
+            .setNegativeButton("Cancel", null).show()
     }
 
     fun openNav() {
@@ -901,6 +941,7 @@ open class MainActivity : Activity() {
         const val REQ_PHONE = 17
         const val REQ_CONTACT = 18
         const val REQ_RESTORE = 19
+        const val REQ_HOME = 21
         const val REQ_BACKUP = 20
     }
 }
