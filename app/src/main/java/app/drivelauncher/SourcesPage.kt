@@ -278,8 +278,7 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         })
 
         val comm = group("Phone & messages")
-        row(comm, "Phone: favourite contacts, recent calls and calling (uses the head unit's Bluetooth phone)",
-            dynButton({ if (PhoneHub.granted(a, android.Manifest.permission.READ_CALL_LOG)) "Allowed" else "Allow" }) { PhoneHub.askAccess(a) },
+        row(comm, "Phone: favourite contacts (opens the head unit's Bluetooth phone with the number ready)",
             button("Add favourite").apply { setOnClickListener { PhoneHub.addFav(a) } })
         row(comm, "Read new messages aloud (LINE, WhatsApp, SMS… on this head unit)",
             segmented(listOf("Off", "While driving", "Always"), { Prefs.readMsgs }) { i -> Prefs.readMsgs = i })
@@ -302,7 +301,7 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         }, lp(MATCH, WRAP).apply { topMargin = S.i(4) })
         val keep = group("Backup & updates")
         row(keep, "Drive Launcher ${BuildConfig.VERSION_NAME}",
-            dynButton({ Updater.buttonText() }) { if (Updater.available) Updater.install(a) else Updater.check() })
+            dynButton({ Updater.buttonText() }) { if (Updater.available) Updater.download(a) else Updater.check() })
         row(keep, "Look for new versions automatically (needs internet, e.g. your phone's hotspot)",
             segmented(listOf("Off", "On"), { if (Prefs.autoUpdate) 1 else 0 }) { i -> Prefs.autoUpdate = i == 1 })
         row(keep, "Back up settings, home pages, dock, places, trips, fuel and service logs",

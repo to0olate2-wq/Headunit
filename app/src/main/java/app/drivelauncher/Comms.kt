@@ -120,23 +120,6 @@ object PhoneHub {
 
     fun granted(ctx: Context, p: String) = try { ctx.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED } catch (_: Exception) { false }
 
-    fun recent(ctx: Context, max: Int): List<Recent> {
-        if (!granted(ctx, Manifest.permission.READ_CALL_LOG)) return emptyList()
-        val out = ArrayList<Recent>()
-        try {
-            ctx.contentResolver.query(CallLog.Calls.CONTENT_URI,
-                arrayOf(CallLog.Calls.CACHED_NAME, CallLog.Calls.NUMBER, CallLog.Calls.TYPE, CallLog.Calls.DATE),
-                null, null, CallLog.Calls.DATE + " DESC")?.use { c ->
-                while (c.moveToNext() && out.size < max) {
-                    val num = c.getString(1) ?: continue
-                    if (out.any { it.number == num }) continue
-                    out.add(Recent(c.getString(0)?.ifBlank { null } ?: num, num, c.getInt(2), c.getLong(3)))
-                }
-            }
-        } catch (e: Exception) { Diag.log("call log: ${e.message}") }
-        return out
-    }
-
     /** The head unit's phone app (whatever handles "dial a number"). */
     fun phoneApp(ctx: Context): String? = try {
         ctx.packageManager.resolveActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:")), 0)?.activityInfo?.packageName
@@ -145,10 +128,8 @@ object PhoneHub {
 
     fun dial(a: MainActivity, number: String) {
         val tel = Uri.parse("tel:" + Uri.encode(number))
-        val direct = granted(a, Manifest.permission.CALL_PHONE)
-        for (action in if (direct) listOf(Intent.ACTION_CALL, Intent.ACTION_DIAL) else listOf(Intent.ACTION_DIAL)) {
-            try { a.startActivity(Intent(action, tel).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return } catch (_: Exception) {}
-        }
+        // opens the phone app with the number ready: one tap on its call button
+        try { a.startActivity(Intent(Intent.ACTION_DIAL, tel).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return } catch (_: Exception) {}
         openApp(a)
     }
 
@@ -156,12 +137,6 @@ object PhoneHub {
         val p = phoneApp(a)
         if (p != null && Apps.launch(a, p)) return
         Toast.makeText(a, "No phone app found on this head unit", Toast.LENGTH_LONG).show()
-    }
-
-    fun askAccess(a: MainActivity) {
-        try {
-            a.requestPermissions(arrayOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.CALL_PHONE, Manifest.permission.READ_CONTACTS), MainActivity.REQ_PHONE)
-        } catch (_: Exception) {}
     }
 
     /** Add a favourite: pick from the unit's contacts or type it in. */
@@ -547,31 +522,10 @@ class PhoneCard(private val a: MainActivity) : Card {
             grid.addView(cell, lp(0, WRAP, 1f))
         }
         if (favs.isNotEmpty()) { repeat(5 - favs.take(5).size) { grid.addView(a.spacer(), lp(0, WRAP, 1f)) }; view.addView(grid, lp(MATCH, WRAP)) }
-        // recent calls
-        val rec = PhoneHub.recent(a, 3)
-        rec.forEach { r ->
-            val row = a.hbox(10f)
-            val ic = IconBtn(a, Ic.PHONE, 16f).apply {
-                isClickable = false
-                fg = if (r.type == CallLog.Calls.MISSED_TYPE || r.type == CallLog.Calls.REJECTED_TYPE) C.WARN else C.MUTED
-            }
-            row.addView(ic, lp(S.i(24), S.i(24)))
-            row.addView(a.label(15f, C.TEXT, F.medium).apply { text = r.name }, lp(0, WRAP, 1f))
-            row.addView(a.label(13f, C.MUTED, F.regular).apply { text = Fmt.time(r.time) }, lp(WRAP, WRAP))
-            row.isClickable = true
-            row.setOnClickListener { PhoneHub.dial(a, r.number) }
-            view.addView(row, lp(MATCH, S.i(36)))
-        }
-        if (favs.isEmpty() && rec.isEmpty()) {
+        if (favs.isEmpty()) {
             view.addView(a.label(14f, C.MUTED, F.regular, lines = 3).apply {
                 text = "Add favourite contacts with +. Calls use the head unit's Bluetooth phone; calls inside ZLink stay in ZLink."
             }, lp(MATCH, WRAP))
-            if (!PhoneHub.granted(a, Manifest.permission.READ_CALL_LOG)) {
-                view.addView(a.label(13f, C.TEXT3, F.semibold).apply {
-                    text = "Show recent calls"; background = roundBg(C.CARD2, 12f, C.BORDER2); gravity = Gravity.CENTER; isClickable = true
-                    setOnClickListener { PhoneHub.askAccess(a) }
-                }, lp(WRAP, S.i(40)))
-            }
         }
         view.addView(a.spacer(), lp(MATCH, 0, 1f))
     }

@@ -156,8 +156,6 @@ object Setup {
             { granted(it, Manifest.permission.POST_NOTIFICATIONS) }, { it.requestPerms(true) }) else null,
         if (Build.VERSION.SDK_INT >= 31) Step(Ic.BT, "Bluetooth", "Only for an OBD2 engine adapter.", false,
             { granted(it, Manifest.permission.BLUETOOTH_CONNECT) }, { it.requestPerms(true) }) else null,
-        Step(Ic.CHECK, "Install updates", "Lets the app install new versions with one tap.", false,
-            { it.packageManager.canRequestPackageInstalls() }, { it.openInstallSettings() }),
     )
 
     fun missingNeeded(a: MainActivity) = steps.any { it.needed && !it.done(a) }
