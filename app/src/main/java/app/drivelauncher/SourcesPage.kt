@@ -239,9 +239,21 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
             })
         row(drive, "Music a little louder at higher speed",
             segmented(listOf("Off", "Low", "Medium", "High"), { Prefs.speedVolume }) { i -> Prefs.speedVolume = i })
-        row(drive, "Navigation app for quick destinations",
-            segmented(listOf("Auto", "Google Maps", "Waze"), { listOf("auto", "maps", "waze").indexOf(Prefs.navApp) }) { i ->
-                Prefs.navApp = listOf("auto", "maps", "waze")[i]
+        row(drive, "Navigation: the Maps button and quick destinations open",
+            segmented(listOf("Auto", "Google Maps", "Waze", "Built-in"), { listOf("auto", "maps", "waze", "builtin").indexOf(Prefs.navApp) }) { i ->
+                Prefs.navApp = listOf("auto", "maps", "waze", "builtin")[i]
+            })
+        row(drive, "Offline maps for the built-in navigation (works without internet)",
+            dynButton({ OfflineMaps.files(a).size.let { if (it == 0) "Download a map" else "$it map" + (if (it > 1) "s" else "") } }) { NavPage.manageMaps(a) })
+        row(drive, "Built-in navigation: voice directions",
+            segmented(listOf("Off", "On"), { if (Prefs.gb("navVoice", true)) 1 else 0 }) { i -> Prefs.sb("navVoice", i == 1) })
+        row(drive, "Built-in navigation: avoid",
+            segmented(listOf("Nothing", "Tolls", "Motorways", "Both"), {
+                (if (Prefs.gb("avoidTolls", false)) 1 else 0) + (if (Prefs.gb("avoidMotorways", false)) 2 else 0)
+            }) { i -> Prefs.sb("avoidTolls", i == 1 || i == 3); Prefs.sb("avoidMotorways", i >= 2) })
+        row(drive, "Live traffic for the built-in navigation (optional: free TomTom key from developer.tomtom.com)",
+            dynButton({ if (Prefs.gs("tomtomKey").isBlank()) "Add key" else "Key added" }) {
+                a.form("TomTom key", listOf(Field("Key (leave empty to remove)", Prefs.gs("tomtomKey"), false)), null) { v, _ -> Prefs.ss("tomtomKey", v[0].trim()) }
             })
         row(drive, "Saved places (Home, Work and your own)", button("Edit places").apply { setOnClickListener { Places.manage(a) } })
         row(drive, "Floating speedometer on top of ZLink and Maps",

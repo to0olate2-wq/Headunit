@@ -525,6 +525,7 @@ object NavHub {
         "com.google.android.apps.maps" -> "Google Maps"
         "com.waze" -> "Waze"
         "com.here.app.maps" -> "HERE WeGo"
+        Guide.PKG -> "Drive Launcher"
         else -> Apps.label(ctx, pkg)
     }
 }

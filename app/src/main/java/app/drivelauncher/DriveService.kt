@@ -309,7 +309,13 @@ class FloatPanel(private val ctx: Context, private val k: Float) : LinearLayout(
         turnStreet.maxWidth = px(220f)
         tc.addView(turnDist); tc.addView(turnStreet)
         turn.addView(tc)
-        turn.setOnClickListener { NavHub.pkg.takeIf { it.isNotEmpty() }?.let { Apps.launch(ctx, it) } }
+        turn.setOnClickListener {
+            if (NavHub.pkg == Guide.PKG) try {
+                ctx.startActivity(android.content.Intent(ctx, MainActivity::class.java).putExtra("page", "nav")
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            } catch (_: Exception) {}
+            else NavHub.pkg.takeIf { it.isNotEmpty() }?.let { Apps.launch(ctx, it) }
+        }
         addView(turn, LayoutParams(WRAP, WRAP))
         // music
         music.orientation = HORIZONTAL; music.gravity = Gravity.CENTER_VERTICAL

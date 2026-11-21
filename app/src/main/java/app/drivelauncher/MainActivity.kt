@@ -43,7 +43,7 @@ import kotlin.math.min
 class Field(val label: String, val value: String, val numeric: Boolean)
 
 open class MainActivity : Activity() {
-    enum class Page { HOME, TELEMETRY, CAR, SOURCES, APPS }
+    enum class Page { HOME, TELEMETRY, CAR, SOURCES, APPS, NAV }
 
     /** True for the compact split-screen dashboard ([DashActivity]). */
     protected open val dashMode = false
@@ -62,6 +62,7 @@ open class MainActivity : Activity() {
     private var car: CarPage? = null
     private var sources: SourcesPage? = null
     private var apps: AppsPage? = null
+    private var nav: NavPage? = null
     private var dock: Dock? = null
     private var saver: SaverView? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -80,6 +81,7 @@ open class MainActivity : Activity() {
             tickCount++
             if (tickCount % 12 == 0 && !MediaHub.accessGranted) MediaHub.tryAttach()
             if (tickCount % 40 == 0) checkTheme(false)
+            if (tickCount % 15 == 0) OfflineMaps.load(this@MainActivity) // a map download may have finished
             CarArt.Mode.track(if (Gps.fresh) Gps.speedKmh else Obd.v("speed"))
             if (!dashMode) Updater.tick(this@MainActivity)
             if (setup == null) checkSaver() else setup?.refresh()
@@ -115,6 +117,8 @@ open class MainActivity : Activity() {
         MediaHub.init(this)
         Obd.start(this)
         TileMapView.prune(this)
+        OfflineMaps.load(this)
+        if (!dashMode && intent?.getStringExtra("page") == "nav") page = Page.NAV
         root = object : FrameLayout(this) {
             override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
                 super.onSizeChanged(w, h, oldw, oldh)
@@ -163,6 +167,9 @@ open class MainActivity : Activity() {
             val c = CarPage(this, portrait)
             val s = SourcesPage(this, portrait, w, h)
             val ap = AppsPage(this, w)
+            val nv = NavPage(this, portrait)
+            host.addView(nv.view, flp(MATCH, MATCH))
+            nav = nv
             host.addView(t.view, flp(MATCH, MATCH))
             host.addView(c.view, flp(MATCH, MATCH))
             host.addView(s.view, flp(MATCH, MATCH))
@@ -212,6 +219,7 @@ open class MainActivity : Activity() {
         Page.CAR -> car?.view
         Page.SOURCES -> sources?.view
         Page.APPS -> apps?.view
+        Page.NAV -> nav?.view
     }
 
     private var videoBg: VideoBackground? = null
@@ -228,6 +236,7 @@ open class MainActivity : Activity() {
         car?.view?.showIf(p == Page.CAR)
         sources?.view?.showIf(p == Page.SOURCES)
         apps?.view?.showIf(p == Page.APPS)
+        nav?.view?.showIf(p == Page.NAV)
         if (p == Page.APPS) apps?.refresh()
         val v = pageView(p, homeIdx)
         if (v != null && shownView != null && v !== shownView && v.parent === shownView?.parent && Motion.on) {
@@ -274,6 +283,7 @@ open class MainActivity : Activity() {
                 Page.CAR -> car?.update()
                 Page.SOURCES -> sources?.update()
                 Page.APPS -> {}
+                Page.NAV -> nav?.update()
             }
             dock?.update(page, if (page == Page.HOME && homes.getOrNull(homeIdx)?.hasClock == true) "" else Fmt.time())
         } catch (e: Exception) {
@@ -401,7 +411,10 @@ open class MainActivity : Activity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        if (!dashMode) { saver?.visibility = View.GONE; showHome(0) }
+        if (!dashMode) {
+            saver?.visibility = View.GONE
+            if (intent?.getStringExtra("page") == "nav") show(Page.NAV) else showHome(0)
+        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -888,7 +901,17 @@ open class MainActivity : Activity() {
             .setNegativeButton("Cancel", null).show()
     }
 
+    /** The built-in navigation screen (optionally straight to a destination). */
+    fun showNav(d: Dest? = null) {
+        if (dashMode) return
+        show(Page.NAV)
+        if (d != null) nav?.choose(d)
+    }
+
+    fun navSearch(q: String) { show(Page.NAV); nav?.searchFor(q) }
+
     fun openNav() {
+        if (!dashMode && (Guide.active || Prefs.navApp == "builtin")) { showNav(); return }
         val pkg = (if (NavHub.active) NavHub.pkg else null) ?: Apps.findMaps(this) ?: Apps.findZlink(this)
         if (pkg == null || !Apps.launch(this, pkg)) Toast.makeText(this, "No maps app installed", Toast.LENGTH_SHORT).show()
     }

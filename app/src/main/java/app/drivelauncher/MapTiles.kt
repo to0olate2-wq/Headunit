@@ -48,6 +48,12 @@ class TileMapView(ctx: Context) : View(ctx) {
     var fixed: DoubleArray? = null
         set(v) { field = v; invalidate() }
     var showParking = true
+    /** Turn the map so the road ahead points up (navigation). */
+    var headingUp = false
+    /** Where the car sits, as a share of the height (follow mode). */
+    var carAt = 0.62f
+    /** Point to mark (next turn), or null. */
+    var mark: DoubleArray? = null
 
     private val tilePaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -77,14 +83,18 @@ class TileMapView(ctx: Context) : View(ctx) {
         p.style = Paint.Style.FILL
         p.color = C.MAP_BG
         c.drawRect(0f, 0f, w, h, p)
-        val src = (if (C.night) NIGHT else DAY)[srcIdx]
+        // the downloaded offline map when it covers where we look, else the online maps
+        val lookLa = if (mode == 2 && fixed != null) fixed!![0] else lat
+        val lookLo = if (mode == 2 && fixed != null) fixed!![1] else lon
+        val offline = !lookLa.isNaN() && OfflineMaps.covers(lookLa, lookLo)
+        val src = if (offline) (if (C.night) OFF_NIGHT else OFF_DAY) else (if (C.night) NIGHT else DAY)[srcIdx]
         tilePaint.colorFilter = if (src.dark) DARK else null
         val base = 256f * max(1f, S.u)
 
         // what to centre on, and at which zoom
         var cLat = lat; var cLon = lon; var z0 = zoom
         val r = route
-        var ax = w / 2f; var ay = h * 0.62f
+        var ax = w / 2f; var ay = h * carAt
         when {
             mode == 1 && r != null && r.size >= 2 -> {
                 val x0 = r.minOf { ux(it[1]) }; val x1 = r.maxOf { ux(it[1]) }
@@ -111,10 +121,15 @@ class TileMapView(ctx: Context) : View(ctx) {
         val world = n * ts.toDouble()
         val x0 = ux(cLon) * world - ax
         val y0 = uy(cLat) * world - ay
-        val tx0 = floor(x0 / ts).toInt()
-        val tx1 = floor((x0 + w) / ts).toInt()
-        val ty0 = floor(y0 / ts).toInt()
-        val ty1 = floor((y0 + h) / ts).toInt()
+        val rotate = headingUp && mode == 0
+        // when the map turns, the corners need tiles from further out
+        val pad = if (rotate) kotlin.math.hypot(w, h) else 0f
+        val tx0 = floor((x0 - pad) / ts).toInt()
+        val tx1 = floor((x0 + w + pad) / ts).toInt()
+        val ty0 = floor((y0 - pad) / ts).toInt()
+        val ty1 = floor((y0 + h + pad) / ts).toInt()
+        c.save()
+        if (rotate) c.rotate(-bearing, ax, ay)
         var drawn = 0
         for (ty in ty0..ty1) {
             if (ty < 0 || ty >= n) continue
@@ -128,7 +143,7 @@ class TileMapView(ctx: Context) : View(ctx) {
                 if (bmp != null) { c.drawBitmap(bmp, null, rf, tilePaint); drawn++ }
             }
         }
-        if (drawn == 0) text(c, "Loading map… (needs internet the first time)", w / 2, h * 0.3f)
+        if (drawn == 0 && !offline) text(c, "Loading map… (needs internet the first time)", w / 2, h * 0.3f)
         fun sx(lo: Double) = (ux(lo) * world - x0).toFloat()
         fun sy(la: Double) = (uy(la) * world - y0).toFloat()
 
@@ -144,6 +159,11 @@ class TileMapView(ctx: Context) : View(ctx) {
             p.color = C.BLUE; c.drawCircle(sx(r[0][1]), sy(r[0][0]), S.p(7f), p)
             p.color = C.accent; c.drawCircle(sx(r.last()[1]), sy(r.last()[0]), S.p(7f), p)
         }
+        mark?.let { m ->
+            p.style = Paint.Style.FILL; p.color = C.BG
+            c.drawCircle(sx(m[1]), sy(m[0]), S.p(9f), p)
+            p.color = 0xFFFFFFFF.toInt(); c.drawCircle(sx(m[1]), sy(m[0]), S.p(6f), p)
+        }
         // parking spot
         if (showParking && Parking.has && (mode != 0 || lat.isNaN() || Trips.dist(Parking.lat, Parking.lon, lat, lon) > 30)) {
             val px = sx(Parking.lon); val py = sy(Parking.lat)
@@ -157,6 +177,7 @@ class TileMapView(ctx: Context) : View(ctx) {
                 p.textAlign = Paint.Align.LEFT
             }
         }
+        c.restore()
         // car marker
         if (mode == 0) {
             p.style = Paint.Style.FILL
@@ -164,7 +185,7 @@ class TileMapView(ctx: Context) : View(ctx) {
             c.drawCircle(ax, ay, S.p(20f), p)
             c.save()
             c.translate(ax, ay)
-            c.rotate(bearing)
+            c.rotate(if (rotate) 0f else bearing)
             val k = S.p(1f)
             path.reset()
             path.moveTo(0f, -15f * k); path.lineTo(11f * k, 12f * k); path.lineTo(0f, 6f * k); path.lineTo(-11f * k, 12f * k); path.close()
@@ -195,7 +216,7 @@ class TileMapView(ctx: Context) : View(ctx) {
     }
 
     private fun tile(src: Src, z: Int, x: Int, y: Int): Bitmap? {
-        val key = "${src.id}/$z/$x/$y"
+        val key = if (src.render != null) "off${OfflineMaps.version}/$z/$x/$y" else "${src.id}/$z/$x/$y"
         mem.get(key)?.let { return it }
         if (pending.contains(key)) return null
         val failedAt = failed[key]
@@ -205,7 +226,9 @@ class TileMapView(ctx: Context) : View(ctx) {
             try {
                 val f = File(cacheDir, key.replace('/', '_'))
                 var bmp: Bitmap? = null
-                if (f.exists()) bmp = BitmapFactory.decodeFile(f.path)
+                if (src.render == null && f.exists()) bmp = BitmapFactory.decodeFile(f.path)
+                val render = src.render
+                if (render != null) bmp = render(z, x, y) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply { eraseColor(C.MAP_BG) }
                 if (bmp == null) {
                     val con = URL(src.url(z, x, y)).openConnection() as HttpURLConnection
                     con.connectTimeout = 8000
@@ -251,7 +274,8 @@ class TileMapView(ctx: Context) : View(ctx) {
         }
     }
 
-    private class Src(val id: String, val maxZ: Int, val attribution: String, val dark: Boolean, val url: (Int, Int, Int) -> String)
+    private class Src(val id: String, val maxZ: Int, val attribution: String, val dark: Boolean,
+                      val render: ((Int, Int, Int) -> Bitmap?)? = null, val url: (Int, Int, Int) -> String)
 
     companion object {
         const val UA = "DriveLauncher/0.2 (personal car head-unit launcher; github.com/to0olate2-wq/Headunit)"
@@ -267,6 +291,9 @@ class TileMapView(ctx: Context) : View(ctx) {
             },
             Src("osm", 19, "© OpenStreetMap contributors", false) { z, x, y -> "https://tile.openstreetmap.org/$z/$x/$y.png" },
         )
+        /** Offline map tiles (drawn on the unit); the key changes when map files change. */
+        private val OFF_DAY = Src("offline", 19, "© OpenStreetMap contributors · offline map", false, { z, x, y -> OfflineMaps.render(z, x, y) }) { _, _, _ -> "" }
+        private val OFF_NIGHT = Src("offline", 19, "© OpenStreetMap contributors · offline map", true, { z, x, y -> OfflineMaps.render(z, x, y) }) { _, _, _ -> "" }
         @Volatile private var srcIdx = 0
         private val srcFails = AtomicInteger(0)
         private val mem = LruCache<String, Bitmap>(90)

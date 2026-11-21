@@ -149,6 +149,21 @@ class ScreensTest {
         CarArt.Mode.force = false; act.showHome(0); save(act, "$name-glass-parked")
         act.showSaver(); save(act, "$name-saver"); act.hideSaver()
         act.showSetup(); save(act, "$name-setup"); act.closeSetup()
+        // built-in navigation: search screen, then driving with a route
+        act.show(MainActivity.Page.NAV); save(act, "$name-nav-search")
+        run {
+            val la = Gps.lat.takeIf { !it.isNaN() } ?: 13.7563; val lo = Gps.lon.takeIf { !it.isNaN() } ?: 100.5018
+            val pts = ArrayList<DoubleArray>()
+            for (i in 0..12) pts.add(doubleArrayOf(la, lo + i * 0.0009))
+            for (i in 1..12) pts.add(doubleArrayOf(la - i * 0.0009, lo + 12 * 0.0009))
+            val r = Route(pts, listOf(Maneuver(la, lo, "depart", "", 0, "Sukhumvit Road"),
+                Maneuver(la, lo + 12 * 0.0009, "turn", "right", 0, "Soi Asok"),
+                Maneuver(pts.last()[0], pts.last()[1], "arrive", "", 0, "")), 2600.0, 420.0, "online")
+            Guide.setForTest(act, Dest("Central Embassy", "Ploenchit Road", pts.last()[0], pts.last()[1]), r, 700.0)
+            act.show(MainActivity.Page.NAV); save(act, "$name-nav-driving")
+            act.showHome(0); save(act, "$name-nav-home")
+            Guide.stop()
+        }
         Prefs.si("crashUnseen", 1); Crash.announce(act); act.showHome(0); save(act, "$name-crash-banner"); Notices.clear("crash")
         // update banner (shown only while parked)
         Updater.parse(org.json.JSONObject("""{"tag_name":"build-99999","name":"Drive Launcher 0.6.99999","body":"New premium car with driving and parked looks\n\n- more","assets":[{"name":"DriveLauncher.apk","browser_download_url":"https://example.invalid/DriveLauncher.apk"}]}"""))

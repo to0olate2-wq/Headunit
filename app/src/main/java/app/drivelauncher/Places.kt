@@ -73,6 +73,10 @@ object Places {
     /** Start navigation to a saved place, or search nearby for "fuel", "coffee"… */
     fun go(a: MainActivity, p: Place) {
         if (!p.isSet) { edit(a, p, null); return }
+        if (Prefs.navApp == "builtin") {
+            if (p.hasSpot) a.showNav(Dest(p.name, p.query, p.lat, p.lon)) else a.navSearch(p.query)
+            return
+        }
         val pkg = navPkg(a)
         val q = Uri.encode(p.query)
         val nearby = NEARBY.any { it.icon == p.icon } && !p.hasSpot

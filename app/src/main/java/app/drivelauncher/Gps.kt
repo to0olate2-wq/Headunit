@@ -133,6 +133,7 @@ object Gps {
         if (now - lastSave > 30_000) save()
         Weather.maybeFetch(lat, lon)
         try { RoadLimit.onFix(l.latitude, l.longitude, bearing, kmh, l.accuracy) } catch (e: Exception) { Diag.log("road limit: ${e.message}") }
+        Guide.onFix(l.latitude, l.longitude, speedKmh, bearing)
     }
 
     fun save() {
