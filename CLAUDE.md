@@ -79,6 +79,18 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
   (disabled HOME activity enabled for 1.5 s → chooser). `leaveLauncher()` (Settings → Connections): open the unit's
   launcher / stop being home / uninstall. Dock Wi-Fi + BT icons (`wifiState`, `btState`; tap = settings safely).
   AVRCP `TRACK_EVENT` song info was already in `MediaHub` broadcasts.
+- Built-in navigation (0.6.25): `Nav.kt` — `Geo`, `Route`/`Maneuver` (`at` = metres along), `Words` (English
+  instruction/distance text), `NavNet` (Photon → Nominatim search; route: TomTom with live traffic if pref `tomtomKey`,
+  else OSRM `router.project-osrm.org` → `routing.openstreetmap.de`, polyline6, `exclude=toll,motorway`), `Guide` (fed by
+  `Gps.onFix`: snaps to the route, speaks far/near instructions via `Speaker`, reroutes after 3 off-route fixes,
+  publishes to `NavHub` with pkg `Guide.PKG` so home cards / pill show it; `setForTest`), `TurnArrow`.
+  `OfflineMaps.kt` — mapsforge 0.25.0 (LGPL, Maven Central; jars for local type-check are copied by CI to
+  `ci-results/deps`, keep them in /home/claude/tools/deps): country `.map` files from `download.mapsforge.org/maps/v5/`
+  via DownloadManager into `getExternalFilesDir/maps` (`x.map.download` renamed when done), `MultiMapDataStore` +
+  `DatabaseRenderer` draw 256-px tiles for `TileMapView` (offline Src when the view centre is covered; `headingUp`,
+  `carAt`, `mark`). `OfflineRoute` = rough A* over map ways (zoom 14 near ends, zoom 10 between; loose ends joined
+  within 40 m). `NavPage.kt` = Page.NAV (search, places, preview, driving UI, `manageMaps`). Pref `navApp` "builtin"
+  makes the Maps button / quick places open it. `NavTest` covers parsing, words, guidance, listing, offline graph.
 - `Overlay` + `FloatPanel` (DriveService.kt): one draggable pill over other apps with speed (`bubble`), next turn
   (`floatTurn`) and mini player (`floatMusic`). `LiveScenes` (city/rain/highway) and `VideoBackground` (TextureView +
   MediaPlayer, persisted document URI `videoUri`) in Views.kt; background picker is a list in Settings → Look.

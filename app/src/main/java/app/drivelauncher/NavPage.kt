@@ -34,8 +34,10 @@ class NavPage(private val a: MainActivity, private val portrait: Boolean) {
     // driving panel
     private val turnBox = a.hbox(14f)
     private val arrow = ArrowView()
-    private val turnDist: TextView = a.label(34f, C.ON_ACCENT, F.display).tnum()
-    private val turnText: TextView = a.label(18f, C.ON_ACCENT, F.semibold, lines = 2)
+    /** Text on the next-turn panel (white on the gradient themes). */
+    private val onTurn = if (Skin.glowy || Skin.lux) C.ON_GRAD else C.ON_ACCENT
+    private val turnDist: TextView = a.label(34f, onTurn, F.display).tnum()
+    private val turnText: TextView = a.label(18f, onTurn, F.semibold, lines = 2)
     private val status: TextView = a.label(14f, C.TEXT, F.medium, lines = 2)
     private val etaBox = a.hbox(10f)
     private val eta: TextView = a.label(18f, C.TEXT, F.semibold).tnum()
@@ -53,7 +55,7 @@ class NavPage(private val a: MainActivity, private val portrait: Boolean) {
     private inner class ArrowView : View(a) {
         var m: Maneuver? = null
             set(v) { field = v; invalidate() }
-        override fun onDraw(c: Canvas) { m?.let { TurnArrow.draw(c, it, width / 2f, height / 2f, width * 0.9f, C.ON_ACCENT) } }
+        override fun onDraw(c: Canvas) { m?.let { TurnArrow.draw(c, it, width / 2f, height / 2f, width * 0.9f, onTurn) } }
     }
 
     private fun small(t: String): TextView = a.label(14f, C.TEXT3, F.semibold).apply {

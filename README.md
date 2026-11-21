@@ -57,6 +57,10 @@ Settings → Look → **Theme**. Each theme keeps its own accent colour and home
 - **Safe on TS10-type units:** never opens Android's hidden Settings app (it can freeze some units); the Home app is
   chosen with Android's own pop-up. Settings → Connections → *Leave Drive Launcher* goes back to the unit's own home screen.
 - **Wi-Fi and Bluetooth icons** in the bottom bar (bright = connected, dim = on, faint = off).
+- **Built-in navigation (optional):** search a place, voice turn-by-turn in English, map that turns with the car,
+  new route when you take a wrong turn. Download your country's map (OpenStreetMap, free) and the map works without
+  internet; routes are worked out online (live traffic with an optional free TomTom key) and roughly from the offline
+  map when there's no internet. Settings → Driving → Navigation: Built-in.
 - **Backup & restore:** settings, home pages, dock, places, trips, fuel and service logs in one file (Downloads, USB stick…),
   plus a daily copy in Downloads.
 - **Updates:** tells you when a new version is out and installs it with one tap (Android asks you to confirm).

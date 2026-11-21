@@ -149,8 +149,8 @@ object OfflineMaps {
             if (href.startsWith("/") || href.startsWith("..") || href.startsWith("http")) continue
             val isDir = href.endsWith("/")
             if (!isDir && !href.endsWith(".map")) continue
-            val rest = m.groupValues[2].replace(Regex("<[^>]+>"), " ")
-            val size = Regex("""(\d+(?:\.\d+)?[KMG]?)\s*$""").find(rest.trim())?.groupValues?.get(1) ?: ""
+            val rest = m.groupValues[2].replace(Regex("<[^>]+>"), " ").replace("&nbsp;", " ")
+            val size = rest.split(Regex("\\s+")).lastOrNull { Regex("""\d+(\.\d+)?[KMG]?""").matches(it) } ?: ""
             out.add(Entry(Uri.decode(href), path + href, if (isDir) "" else pretty(size), isDir))
         }
         return out.distinctBy { it.path }
