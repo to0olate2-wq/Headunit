@@ -65,6 +65,13 @@ android {
 }
 
 dependencies {
+    // offline maps (LGPL-3.0, used as a library): reads and draws OpenStreetMap .map files
+    val mapsforge = "latest.release"
+    implementation("org.mapsforge:mapsforge-core:$mapsforge")
+    implementation("org.mapsforge:mapsforge-map:$mapsforge")
+    implementation("org.mapsforge:mapsforge-map-reader:$mapsforge")
+    implementation("org.mapsforge:mapsforge-themes:$mapsforge")
+    implementation("org.mapsforge:mapsforge-map-android:$mapsforge")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
 }

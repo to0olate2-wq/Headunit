@@ -71,6 +71,9 @@ jobs:
           { grep -nE "^e: |FAILED|What went wrong|Exception" test.log | head -150; echo "-----"; tail -n 200 test.log; } > out/test.log 2>/dev/null || true
           cp app/build/screens/*.png out/screens/ 2>/dev/null || true
           cp app/build/test-results/testReleaseUnitTest/*.xml out/test-results/ 2>/dev/null || true
+          # library jars, so the code can be type-checked offline (the checking machine can't reach Maven Central)
+          mkdir -p out/deps
+          find ~/.gradle/caches/modules-2/files-2.1/org.mapsforge ~/.gradle/caches/modules-2/files-2.1/com.caverock -name "*.jar" ! -name "*sources*" -exec cp {} out/deps/ \; 2>/dev/null || true
           cd out
           git init -q -b ci-results
           git add -A
