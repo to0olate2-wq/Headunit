@@ -22,6 +22,7 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
     private val wifi = IconBtn(a, Ic.WIFI, 22f).apply { contentDescription = "Wi-Fi"; setOnClickListener { SafeSettings.tapWifi(a) } }
     private val bt = IconBtn(a, Ic.BT, 22f).apply { contentDescription = "Bluetooth"; setOnClickListener { SafeSettings.tapBt(a) } }
     private var radios = -1
+    private var radioTick = 0
     private val extra: TextView = a.label(13f, C.MUTED, F.regular).tnum()
     private val dots = Dots(a)
     private val clock: TextView = a.label(when (Skin.id) { Skin.SPORT -> 24f; Skin.LUX -> 26f; Skin.GLASS -> 20f; else -> 18f }, C.TEXT,
@@ -161,7 +162,8 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
         dot(gpsDot, Gps.fresh)
         dot(obdDot, Obd.connected)
         // Wi-Fi and Bluetooth: bright = connected, dim = on, faint = off
-        val r = SafeSettings.wifiState(a) * 3 + SafeSettings.btState(a)
+        // (checked every 2 seconds, plenty for these)
+        val r = if (radioTick++ % 8 == 0) SafeSettings.wifiState(a) * 3 + SafeSettings.btState(a) else radios
         if (r != radios) {
             radios = r
             for ((b, st) in listOf(wifi to r / 3, bt to r % 3)) {

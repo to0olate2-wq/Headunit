@@ -110,6 +110,11 @@ Controls: session transport → notification actions (by name, or position when 
   fraud block for sideloaded apps that declare a notification listener (Thailand and other countries). Not fixable in
   the app without losing notification access: the owner turns Play Protect off briefly (or installs with adb).
   0.6.19 removed call log / contacts / self-install by mistake; 0.6.20 put them back.
+- `Speaker`: one audio-focus request while speaking (a new request per sentence leaked focus and left music ducked);
+  `say(…, english = true)` for our own sentences (directions, reminders), the unit's voice for messages.
+- `MainActivity.form`: decimal comma → point only for numeric fields (names and addresses keep commas).
+- `DriveService`: `startForeground` can be refused on Android 14+ when started from the background → stop cleanly.
+- Built-in guidance owns `NavHub` while `Guide.active` (other apps' nav notifications are ignored then).
 - `isSingleLine = true` replaces the all-caps transformation: set caps after it (`Ui.label`).
 - `/*` inside a KDoc comment (e.g. `*.png`) opens a nested comment → "Unclosed comment".
 - Robolectric needs `android.useAndroidX=true` in gradle.properties.

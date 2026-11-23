@@ -230,6 +230,7 @@ open class MainActivity : Activity() {
     private var slideDir = 1
 
     fun show(p: Page) {
+        if (p != Page.SOURCES) SourcesPage.forget()
         page = p
         homes.forEachIndexed { i, hp -> hp.view.showIf(p == Page.HOME && i == homeIdx) }
         tele?.view?.showIf(p == Page.TELEMETRY)

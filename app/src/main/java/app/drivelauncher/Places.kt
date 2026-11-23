@@ -84,7 +84,7 @@ object Places {
             pkg == "com.waze" && p.hasSpot -> start(a, "https://waze.com/ul?ll=${p.lat},${p.lon}&navigate=yes", pkg)
             pkg == "com.waze" && nearby -> start(a, "https://waze.com/ul?q=$q", pkg)
             pkg == "com.waze" -> start(a, "https://waze.com/ul?q=$q&navigate=yes", pkg)
-            nearby && Gps.lat != 0.0 -> start(a, "geo:${Gps.lat},${Gps.lon}?q=$q", pkg)
+            nearby && !Gps.lat.isNaN() && Gps.lat != 0.0 -> start(a, "geo:${Gps.lat},${Gps.lon}?q=$q", pkg)
             p.hasSpot -> start(a, "google.navigation:q=${p.lat},${p.lon}", pkg)
             else -> start(a, "google.navigation:q=$q", pkg)
         } || start(a, if (p.hasSpot) "geo:${p.lat},${p.lon}?q=${p.lat},${p.lon}" else "geo:0,0?q=$q", null)
@@ -116,7 +116,11 @@ object Places {
             .setPositiveButton("Save") { _, _ ->
                 val n = name.text.toString().trim().ifEmpty { addr.text.toString().trim().take(18).ifEmpty { "Place" } }
                 val q = addr.text.toString().trim()
-                val spot = here.isChecked && Gps.lat != 0.0
+                val spot = here.isChecked && !Gps.lat.isNaN() && Gps.lat != 0.0
+                if (here.isChecked && !spot && q.isEmpty()) {
+                    android.widget.Toast.makeText(a, "No GPS position yet — type an address instead", android.widget.Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
                 val np = Place(n, if (spot) "" else q, if (spot) Gps.lat else Double.NaN, if (spot) Gps.lon else Double.NaN, p?.icon ?: "star")
                 if (!np.isSet && !fixed) return@setPositiveButton
                 if (idx != null) list[idx] = np else list.add(np)
@@ -156,7 +160,8 @@ fun MainActivity.placeChip(p: Place, big: Boolean): LinearLayout {
     }
     v.addView(ic, lp(S.i(if (big) 28 else 22), S.i(if (big) 28 else 22)))
     v.addView(a.label(if (big) 15f else 14f, if (p.isSet || p.icon !in setOf("home", "work")) C.TEXT else C.MUTED, F.semibold).apply {
-        text = if (!p.isSet && p.icon in setOf("home", "work")) "Set ${p.name.lowercase()}" else p.name
+        // small chips have little room: just "Home" (greyed until it's set); big ones say "Set home"
+        text = if (big && !p.isSet && p.icon in setOf("home", "work")) "Set ${p.name.lowercase()}" else p.name
     }, lp(WRAP, WRAP))
     v.isClickable = true
     v.contentDescription = p.name

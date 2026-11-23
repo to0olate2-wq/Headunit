@@ -225,7 +225,7 @@ object Trips {
                 c.movingMs += (t - prevT).coerceIn(0L, 5000L)
             }
         }
-        if (kmh > c.maxKmh) c.maxKmh = kmh
+        if (kmh > c.maxKmh && accuracy < 35f && kmh < 300f) c.maxKmh = kmh
         c.endLat = lat; c.endLon = lon; c.end = now
         prevLat = lat; prevLon = lon; prevT = t
         if (lastPtLat.isNaN() || now - lastPtT > 10_000 || dist(lastPtLat, lastPtLon, lat, lon) > 40) {

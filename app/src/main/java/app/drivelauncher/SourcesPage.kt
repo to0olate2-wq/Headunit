@@ -56,7 +56,7 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
 
     private val gps = SrcCard(Ic.LOCATE, "GPS", "Built into the head unit")
     private val music = SrcCard(Ic.MUSIC, "Music", "Phone via ZLink / Bluetooth, or any app")
-    private val nav = SrcCard(Ic.TURN_RIGHT, "Navigation", "Google Maps or Waze on this unit")
+    private val nav = SrcCard(Ic.TURN_RIGHT, "Navigation", "Built-in, Maps or Waze")
     private val obd = SrcCard(Ic.PLUG, "OBD2 adapter", "Bluetooth or Wi-Fi ELM327")
     private val can = SrcCard(Ic.CAR, "Vehicle CAN", "Doors and climate")
     private val tpms = SrcCard(Ic.TIRE, "Tire pressure", "USB TPMS receiver")
@@ -261,7 +261,7 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
             dynButton({ if (Overlay.allowed(a)) "Allowed" else "Allow" }) { a.openOverlaySettings() })
         row(drive, "Floating music player on top of ZLink and Maps",
             segmented(listOf("Off", "On"), { if (Prefs.floatMusic) 1 else 0 }) { i -> Prefs.floatMusic = i == 1; if (i == 1 && !Overlay.allowed(a)) a.openOverlaySettings() })
-        row(drive, "Floating next turn on top of other apps (Google Maps / Waze on this unit)",
+        row(drive, "Floating next turn on top of other apps (built-in navigation, Google Maps or Waze)",
             segmented(listOf("Off", "On"), { if (Prefs.floatTurn) 1 else 0 }) { i -> Prefs.floatTurn = i == 1; if (i == 1 && !Overlay.allowed(a)) a.openOverlaySettings() })
         row(drive, "When the car turns on, open", dynButton({
             when (val v = Prefs.autoApp) { "off", "" -> "Nothing"; "zlink" -> "ZLink" + (if (Apps.findZlink(a) == null) " (not found)" else ""); else -> Apps.label(a, v) }
@@ -356,6 +356,15 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         view.isVerticalScrollBarEnabled = true
         view.addView(col, android.widget.FrameLayout.LayoutParams(MATCH, WRAP))
         refreshSegments()
+        // keep the place in the list when a setting rebuilds the screens (theme, units, colours…)
+        view.viewTreeObserver.addOnScrollChangedListener { savedY = view.scrollY }
+        view.post { view.scrollTo(0, savedY) }
+    }
+
+    companion object {
+        private var savedY = 0
+        /** Leaving Settings: next time it opens at the top. */
+        fun forget() { savedY = 0 }
     }
 
     /** Row of option buttons; the chosen one is highlighted. */
@@ -414,7 +423,7 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         when {
             !MediaHub.accessGranted -> nav.set("Needs access", 1, "Uses the same notification access as Music.", "Allow access")
             NavHub.active -> nav.set("Route active", 0, "${NavHub.title} ${NavHub.text}".trim(), "Open maps")
-            else -> nav.set("No route", 2, "Start navigation in Google Maps or Waze on this unit to show turns. Navigation inside ZLink stays on the ZLink screen.", "Open maps")
+            else -> nav.set("No route", 2, "Start a route in the built-in navigation, or in Google Maps or Waze on this unit, to show turns here. Navigation inside ZLink stays on the ZLink screen.", "Open maps")
         }
         // OBD
         when (Obd.state) {
