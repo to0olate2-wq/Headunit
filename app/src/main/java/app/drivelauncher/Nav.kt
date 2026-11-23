@@ -164,6 +164,13 @@ object Words {
         else -> "In ${max(50, (m / 50).roundToInt() * 50)} metres"
     }
 
+    /** "12 kilometres", "800 metres", "3 miles". */
+    fun spokenTotal(m: Double): String = if (Units.imp) {
+        val mi = m / 1609.344
+        if (mi >= 1) "${mi.roundToInt()} ${if (mi.roundToInt() == 1) "mile" else "miles"}" else "${((m * 3.28084) / 100).roundToInt() * 100} feet"
+    } else if (m >= 1000) "${(m / 1000).roundToInt()} ${if ((m / 1000).roundToInt() == 1) "kilometre" else "kilometres"}"
+    else "${max(50, (m / 50).roundToInt() * 50)} metres"
+
     fun duration(s: Double): String {
         val min = (s / 60).roundToInt()
         return if (min >= 60) "${min / 60} h ${min % 60} min" else "$min min"
@@ -420,13 +427,15 @@ object Guide {
         version++
     }
 
-    private fun say(t: String) { val c = app ?: return; if (!muted && Prefs.gb("navVoice", true)) Speaker.say(c, t) }
+    private fun say(t: String) { val c = app ?: return; if (!muted && Prefs.gb("navVoice", true)) Speaker.say(c, t, english = true) }
 
     private fun first() {
         val r = route ?: return
         val m = r.maneuvers.getOrNull(next) ?: return
-        say("${Words.instruction(m)}. ${Words.distance(r.meters)} to go.".replace("Start the route. ", ""))
+        val first = if (m.type == "arrive") "Your destination is ahead" else if (toNext > 200) "${Words.spokenIn(toNext)}, ${Words.instruction(m).replaceFirstChar { it.lowercase() }}" else Words.instruction(m)
+        say("$first. ${Words.spokenTotal(r.meters)} to go.")
         said.add("$next:far")
+        if (toNext <= 200) said.add("$next:near")
     }
 
     /** From every GPS fix. */

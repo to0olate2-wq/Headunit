@@ -130,7 +130,9 @@ class NavPage(private val a: MainActivity, private val portrait: Boolean) {
         sideBtn(IconBtn(a, Ic.CLOSE, 22f), "Stop navigation") { a.confirm("Stop navigation?", "") { Guide.stop(); preview = null; update() } }
         sideBtn(muteBtn, "Voice on or off") { Guide.muted = !Guide.muted; if (Guide.muted) Speaker.stop() }
         sideBtn(overviewBtn, "Whole route") { overview = !overview }
-        sideBtn(IconBtn(a, Ic.PIN, 22f), "Search another place") { overview = false; Guide.stop(); showPlaces() }
+        sideBtn(IconBtn(a, Ic.PIN, 22f), "Go somewhere else") {
+            a.confirm("Go somewhere else?", "This stops the current route.") { overview = false; Guide.stop(); showPlaces(); update() }
+        }
         view.addView(side, flp(WRAP, WRAP, Gravity.END or Gravity.CENTER_VERTICAL).apply { setMargins(0, 0, S.i(14), 0) })
         showPlaces()
         update()

@@ -97,7 +97,13 @@ class DriveService : Service() {
         Trips.init(this)
         FuelLog.init(this)
         ServiceLog.init(this)
-        startInForeground()
+        if (!startInForeground()) {
+            // Android refused (e.g. started from the background on Android 14+): stop cleanly, the launcher starts it again
+            started = false
+            stopSelf()
+            return
+        }
+        started = true
         Gps.start(this)
         MediaHub.init(this)
         val f = IntentFilter().apply {
@@ -110,8 +116,11 @@ class DriveService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
+    private var started = false
+
     override fun onDestroy() {
         h.removeCallbacks(tick)
+        if (!started) { super.onDestroy(); return }
         try { unregisterReceiver(power) } catch (_: Exception) {}
         Overlay.hide()
         Trips.powerOff()
@@ -119,7 +128,11 @@ class DriveService : Service() {
         super.onDestroy()
     }
 
-    private fun startInForeground() {
+    private fun startInForeground(): Boolean = try { foreground(); true } catch (e: Exception) {
+        Diag.log("service foreground refused: ${e.javaClass.simpleName} ${e.message}"); false
+    }
+
+    private fun foreground() {
         val nm = getSystemService(NotificationManager::class.java)
         nm?.createNotificationChannel(NotificationChannel(CH, "Drive Launcher", NotificationManager.IMPORTANCE_MIN).apply {
             description = "Keeps speed, trips and alerts working while other apps are open"

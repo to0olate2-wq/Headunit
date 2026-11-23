@@ -505,6 +505,7 @@ object NavHub {
         val p = sbn.packageName ?: return false
         if (p !in NAV_PKGS) return false
         val n = sbn.notification ?: return true
+        if (Guide.active) return true // the built-in navigation is guiding: don't mix in another app's turns
         if (n.flags and Notification.FLAG_ONGOING_EVENT == 0) return true
         val ex = n.extras ?: return true
         title = ex.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""

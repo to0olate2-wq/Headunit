@@ -320,8 +320,8 @@ open class MainActivity : Activity() {
     /** Asks Android to let the background service keep running. */
     @SuppressLint("BatteryLife")
     fun askKeepRunning() {
-        if (!tryStart(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")),
-                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)))
+        if (!tryStart(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))) &&
+            !(SafeSettings.androidSettingsShown(this) && tryStart(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))))
             Toast.makeText(this, "Open Settings › Apps › Drive Launcher › Battery › Unrestricted", Toast.LENGTH_LONG).show()
     }
 
@@ -420,6 +420,8 @@ open class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (dashMode) { @Suppress("DEPRECATION") super.onBackPressed(); return }
+        if (setup != null) { closeSetup(); return }
+        if (saver?.visibility == View.VISIBLE) { hideSaver(); return }
         if (page != Page.HOME) showHome(homeIdx) else if (homeIdx != 0) showHome(0)
     }
 
@@ -781,7 +783,10 @@ open class MainActivity : Activity() {
         }
         val cb = checkbox?.let { CheckBox(this).apply { text = it; isChecked = true; box.addView(this) } }
         val b = dialog().setTitle(title).setView(box)
-            .setPositiveButton("Save") { _, _ -> ok(edits.map { it.text.toString().replace(',', '.').trim() }, cb?.isChecked ?: false) }
+            .setPositiveButton("Save") { _, _ ->
+                // decimal comma → point only in number fields (names and addresses keep their commas)
+                ok(edits.mapIndexed { i, e -> e.text.toString().let { t -> if (fields[i].numeric) t.replace(',', '.') else t }.trim() }, cb?.isChecked ?: false)
+            }
             .setNegativeButton("Cancel", null)
         if (extra != null) b.setNeutralButton(extra.first) { _, _ -> extra.second() }
         b.show()
@@ -808,9 +813,12 @@ open class MainActivity : Activity() {
             want.add(Manifest.permission.BLUETOOTH_CONNECT)
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             want.add(Manifest.permission.POST_NOTIFICATIONS)
+        permFromButton = fromButton
         if (want.isNotEmpty()) requestPermissions(want.toTypedArray(), 1)
         else if (fromButton) openAppSettings()
     }
+
+    private var permFromButton = false
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -818,6 +826,13 @@ open class MainActivity : Activity() {
         DriveService.start(this)
         if (requestCode == 2 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) chooseObd()
         if (requestCode == REQ_PHONE) rebuild()
+        // Android stops asking after two "Deny"s: then the app's own page is the only way to allow it
+        if (requestCode == 1 && permFromButton && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+            !shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            Toast.makeText(this, "Allow Location here: Permissions › Location › Allow", Toast.LENGTH_LONG).show()
+            openAppSettings()
+        }
+        setup?.refresh()
     }
 
     private fun tryStart(vararg intents: Intent): Boolean {
@@ -912,7 +927,7 @@ open class MainActivity : Activity() {
 
     fun openNav() {
         if (!dashMode && (Guide.active || Prefs.navApp == "builtin")) { showNav(); return }
-        val pkg = (if (NavHub.active) NavHub.pkg else null) ?: Apps.findMaps(this) ?: Apps.findZlink(this)
+        val pkg = NavHub.pkg.takeIf { NavHub.active && it.isNotEmpty() && it != Guide.PKG } ?: Apps.findMaps(this) ?: Apps.findZlink(this)
         if (pkg == null || !Apps.launch(this, pkg)) Toast.makeText(this, "No maps app installed", Toast.LENGTH_SHORT).show()
     }
 

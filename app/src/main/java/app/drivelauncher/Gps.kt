@@ -126,7 +126,7 @@ object Gps {
                 Odometer.add(d.toDouble())
             }
         }
-        if (kmh > tripMaxKmh) tripMaxKmh = kmh
+        if (kmh > tripMaxKmh && l.accuracy < 35f && kmh < 300f) tripMaxKmh = kmh // ignore GPS jumps
         if (tripStart == 0L && kmh > 3f) tripStart = System.currentTimeMillis()
         prev = l
         try { Trips.onFix(l.latitude, l.longitude, kmh, l.accuracy, l.time) } catch (e: Exception) { Diag.log("trips: ${e.message}") }

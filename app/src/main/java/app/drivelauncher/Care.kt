@@ -437,7 +437,7 @@ object BreakReminder {
     fun remind(ctx: Context, min: Int) {
         val t = spoken(min)
         Diag.log("break reminder after $min min")
-        Speaker.say(ctx, "You have been driving for $t. Time for a short break.")
+        Speaker.say(ctx, "You have been driving for $t. Time for a short break.", english = true)
         Notices.post(Notices.N("break", Ic.COFFEE, "Time for a break", "You've been driving for $t. A short stop keeps you sharp.",
             "Find coffee", SystemClock.elapsedRealtime() + 90_000L) { a ->
             Places.NEARBY.firstOrNull { it.icon == "coffee" }?.let { Places.go(a, it) }

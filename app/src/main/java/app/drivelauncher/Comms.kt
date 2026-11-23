@@ -252,6 +252,7 @@ object MessageHub {
         val k = sbn.key ?: "$pkg/$sender"
         val sig = "$time|$text"
         if (seen[k] == sig) return true
+        if (seen.size > 300) seen.clear()
         seen[k] = sig
         val reply = n.actions?.firstOrNull { act ->
             act.remoteInputs?.isNotEmpty() == true &&
@@ -310,17 +311,25 @@ object MessageHub {
 object Speaker {
     private var tts: TextToSpeech? = null
     private var ready = false
-    private val queue = ArrayList<String>()
+    private var failed = false
+    private val queue = ArrayList<Pair<String, Boolean>>()
     private var focus: AudioFocusRequest? = null
+    private var defaultLocale: java.util.Locale? = null
 
-    fun say(ctx: Context, text: String) {
+    /**
+     * Speak [text]. [english] = our own English sentences (directions, reminders) in an English voice when the unit has
+     * one; otherwise (messages) the unit's normal voice, which suits the message's language.
+     */
+    fun say(ctx: Context, text: String, english: Boolean = false) {
         val app = ctx.applicationContext
+        if (failed) return
         val t = tts
         if (t == null) {
-            queue.add(text)
+            queue.add(text to english)
             tts = TextToSpeech(app) { st ->
                 ready = st == TextToSpeech.SUCCESS
-                if (!ready) Diag.log("text to speech not available ($st)")
+                if (!ready) { failed = true; queue.clear(); Diag.log("text to speech not available ($st)"); return@TextToSpeech }
+                defaultLocale = try { tts?.voice?.locale ?: tts?.defaultVoice?.locale } catch (_: Exception) { null }
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(id: String?) {}
                     override fun onDone(id: String?) { release(app) }
@@ -328,29 +337,36 @@ object Speaker {
                     override fun onError(id: String?) { release(app) }
                 })
                 val q = ArrayList(queue); queue.clear()
-                q.forEach { speak(app, it) }
+                q.forEach { speak(app, it.first, it.second) }
             }
             return
         }
-        if (ready) speak(app, text) else queue.add(text)
+        if (ready) speak(app, text, english) else queue.add(text to english)
     }
 
-    private fun speak(ctx: Context, text: String) {
+    private fun speak(ctx: Context, text: String, english: Boolean) {
         val t = tts ?: return
         try {
             val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
             t.setAudioAttributes(attrs)
-            val am = ctx.getSystemService(AudioManager::class.java)
-            val fr = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(attrs).build()
-            focus = fr
-            am?.requestAudioFocus(fr)
+            val want = if (english) java.util.Locale.US else defaultLocale
+            if (want != null && t.isLanguageAvailable(want) >= TextToSpeech.LANG_AVAILABLE) t.language = want
+            if (focus == null) { // one request while speaking; given back when the last sentence is done
+                val fr = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(attrs).build()
+                ctx.getSystemService(AudioManager::class.java)?.requestAudioFocus(fr)
+                focus = fr
+            }
             t.speak(text, TextToSpeech.QUEUE_ADD, null, "msg" + SystemClock.elapsedRealtime())
         } catch (e: Exception) { Diag.log("speak: ${e.message}") }
     }
 
     private fun release(ctx: Context) {
-        try { if (tts?.isSpeaking != true) focus?.let { ctx.getSystemService(AudioManager::class.java)?.abandonAudioFocusRequest(it) } } catch (_: Exception) {}
+        try {
+            if (tts?.isSpeaking == true) return
+            focus?.let { ctx.getSystemService(AudioManager::class.java)?.abandonAudioFocusRequest(it) }
+            focus = null
+        } catch (_: Exception) {}
     }
 
     fun stop() { try { tts?.stop() } catch (_: Exception) {} }
@@ -501,6 +517,8 @@ class PhoneCard(private val a: MainActivity) : Card {
     private val answer = IconBtn(a, Ic.PHONE, 22f).apply { circle = true; bgColor = 0xFF2EBD6B.toInt(); fg = 0xFFFFFFFF.toInt(); contentDescription = "Answer" }
     private val end = IconBtn(a, Ic.CLOSE, 22f).apply { circle = true; bgColor = 0xFFE5484D.toInt(); fg = 0xFFFFFFFF.toInt(); contentDescription = "Decline or hang up" }
     private var shown = -1
+    private val recBox = a.vbox(0f)
+    private var recCount = 0
 
     init {
         view.background = cardBg()
@@ -547,22 +565,10 @@ class PhoneCard(private val a: MainActivity) : Card {
             grid.addView(cell, lp(0, WRAP, 1f))
         }
         if (favs.isNotEmpty()) { repeat(5 - favs.take(5).size) { grid.addView(a.spacer(), lp(0, WRAP, 1f)) }; view.addView(grid, lp(MATCH, WRAP)) }
-        // recent calls
-        val rec = PhoneHub.recent(a, 3)
-        rec.forEach { r ->
-            val row = a.hbox(10f)
-            val ic = IconBtn(a, Ic.PHONE, 16f).apply {
-                isClickable = false
-                fg = if (r.type == CallLog.Calls.MISSED_TYPE || r.type == CallLog.Calls.REJECTED_TYPE) C.WARN else C.MUTED
-            }
-            row.addView(ic, lp(S.i(24), S.i(24)))
-            row.addView(a.label(15f, C.TEXT, F.medium).apply { text = r.name }, lp(0, WRAP, 1f))
-            row.addView(a.label(13f, C.MUTED, F.regular).apply { text = Fmt.time(r.time) }, lp(WRAP, WRAP))
-            row.isClickable = true
-            row.setOnClickListener { PhoneHub.dial(a, r.number) }
-            view.addView(row, lp(MATCH, S.i(36)))
-        }
-        if (favs.isEmpty() && rec.isEmpty()) {
+        // recent calls (refreshed after each call)
+        view.addView(recBox, lp(MATCH, WRAP))
+        val rec = fillRecent()
+        if (favs.isEmpty() && rec == 0) {
             view.addView(a.label(14f, C.MUTED, F.regular, lines = 3).apply {
                 text = "Add favourite contacts with +. Calls use the head unit's Bluetooth phone; calls inside ZLink stay in ZLink."
             }, lp(MATCH, WRAP))
@@ -576,8 +582,29 @@ class PhoneCard(private val a: MainActivity) : Card {
         view.addView(a.spacer(), lp(MATCH, 0, 1f))
     }
 
+    private fun fillRecent(): Int {
+        recBox.removeAllViews()
+        val rec = PhoneHub.recent(a, 3)
+        rec.forEach { r ->
+            val row = a.hbox(10f)
+            val ic = IconBtn(a, Ic.PHONE, 16f).apply {
+                isClickable = false
+                fg = if (r.type == CallLog.Calls.MISSED_TYPE || r.type == CallLog.Calls.REJECTED_TYPE) C.WARN else C.MUTED
+            }
+            row.addView(ic, lp(S.i(24), S.i(24)))
+            row.addView(a.label(15f, C.TEXT, F.medium).apply { text = r.name }, lp(0, WRAP, 1f))
+            row.addView(a.label(13f, C.MUTED, F.regular).apply { text = Fmt.time(r.time) }, lp(WRAP, WRAP))
+            row.isClickable = true
+            row.setOnClickListener { PhoneHub.dial(a, r.number) }
+            recBox.addView(row, lp(MATCH, S.i(36)))
+        }
+        recCount = rec.size
+        return rec.size
+    }
+
     override fun update() {
         if (PhoneHub.version == shown) return
+        if (shown != -1 && !PhoneHub.active) fillRecent() // a call just ended: it's now in the list
         shown = PhoneHub.version
         call.showIf(PhoneHub.active)
         callName.put(PhoneHub.caller)
