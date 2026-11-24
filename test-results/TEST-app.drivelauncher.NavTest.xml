@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.drivelauncher.NavTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-24T19:59:52" hostname="runnervm0hi8g" time="0.499">
+  <properties/>
+  <testcase name="followsTheRoute" classname="app.drivelauncher.NavTest" time="0.262"/>
+  <testcase name="osrmAnswer" classname="app.drivelauncher.NavTest" time="0.044"/>
+  <testcase name="photon" classname="app.drivelauncher.NavTest" time="0.031"/>
+  <testcase name="words" classname="app.drivelauncher.NavTest" time="0.029"/>
+  <testcase name="polyline" classname="app.drivelauncher.NavTest" time="0.025"/>
+  <testcase name="roughOfflineRoute" classname="app.drivelauncher.NavTest" time="0.033"/>
+  <testcase name="mapList" classname="app.drivelauncher.NavTest" time="0.038"/>
+  <testcase name="zlinkProjection" classname="app.drivelauncher.NavTest" time="0.035"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

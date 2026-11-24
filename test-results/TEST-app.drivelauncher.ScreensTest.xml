@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.drivelauncher.ScreensTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-24T19:59:53" hostname="runnervm0hi8g" time="86.75">
+  <properties/>
+  <testcase name="small_1024x600" classname="app.drivelauncher.ScreensTest" time="26.697"/>
+  <testcase name="ts10s_1280x720" classname="app.drivelauncher.ScreensTest" time="31.615"/>
+  <testcase name="portrait_768x1024" classname="app.drivelauncher.ScreensTest" time="28.438"/>
+  <system-out><![CDATA[19:59:56  launcher started, robolectric robolectric Android 14
+19:59:58  layout 1024x600 scale 0.80 landscape, 3 home pages
+19:59:59  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:09  nav: stopped
+20:00:10  layout 1024x600 scale 0.80 landscape, 1 home pages
+20:00:10  break reminder after 125 min
+20:00:11  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:14  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:16  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:18  layout 1024x600 scale 0.80 landscape, 3 home pages
+19:59:56  launcher started, robolectric robolectric Android 14
+19:59:58  layout 1024x600 scale 0.80 landscape, 3 home pages
+19:59:59  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:09  nav: stopped
+20:00:10  layout 1024x600 scale 0.80 landscape, 1 home pages
+20:00:10  break reminder after 125 min
+20:00:11  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:14  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:16  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:18  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:20  launcher started, robolectric robolectric Android 14
+20:00:20  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:21  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:30  nav: stopped
+20:00:35  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:38  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:38  layout 1280x720 scale 1.00 landscape, 1 home pages
+20:00:39  break reminder after 125 min
+20:00:39  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:39  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:39  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:40  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:44  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:44  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:46  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:47  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:47  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:49  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:49  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:50  layout 1280x720 scale 1.00 landscape, 3 home pages
+19:59:56  launcher started, robolectric robolectric Android 14
+19:59:58  layout 1024x600 scale 0.80 landscape, 3 home pages
+19:59:59  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:09  nav: stopped
+20:00:10  layout 1024x600 scale 0.80 landscape, 1 home pages
+20:00:10  break reminder after 125 min
+20:00:11  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:14  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:16  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:18  layout 1024x600 scale 0.80 landscape, 3 home pages
+20:00:20  launcher started, robolectric robolectric Android 14
+20:00:20  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:21  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:30  nav: stopped
+20:00:35  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:38  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:38  layout 1280x720 scale 1.00 landscape, 1 home pages
+20:00:39  break reminder after 125 min
+20:00:39  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:39  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:39  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:40  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:44  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:44  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:46  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:47  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:47  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:49  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:49  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:50  layout 1280x720 scale 1.00 landscape, 3 home pages
+20:00:51  launcher started, robolectric robolectric Android 14
+20:00:51  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:00:52  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:01  nav: stopped
+20:01:05  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:08  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:08  layout 768x1024 scale 0.80 portrait, 1 home pages
+20:01:08  break reminder after 125 min
+20:01:09  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:09  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:09  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:09  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:13  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:13  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:15  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:15  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:16  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:18  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:18  layout 768x1024 scale 0.80 portrait, 3 home pages
+20:01:18  layout 768x1024 scale 0.80 portrait, 3 home pages
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
