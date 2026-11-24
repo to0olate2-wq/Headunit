@@ -192,25 +192,37 @@ object MediaHub {
     fun pick() {
         val now = SystemClock.elapsedRealtime()
         val pin = try { Prefs.mediaPin } catch (_: Exception) { "" }
-        val playingSession = controllers.values.filter { isPlaying(it) }.maxByOrNull { lastPlayingAt[it.packageName] ?: 0L }
-        val pausedSession = controllers.values.filter { it.metadata != null }.maxByOrNull { lastPlayingAt[it.packageName] ?: 0L }
-        val nt = notifTrack?.takeIf { now - notifAt < 30 * 60_000L }
-        val bt = bcTrack?.takeIf { now - bcAt < 30 * 60_000L }
+        val nt = notifTrack?.takeIf { now - notifAt < 30 * 60_000L && it.title.isNotBlank() }
+        val bt = bcTrack?.takeIf { now - bcAt < 30 * 60_000L && it.title.isNotBlank() }
+        // sessions with a real song title only: an idle Bluetooth / radio session with empty details used to win
+        // over ZLink's song and the card showed nothing
+        val named = controllers.values.mapNotNull { c -> fromController(c)?.takeIf { it.title.isNotBlank() }?.let { c to it } }
+        val playing = named.filter { isPlaying(it.first) }.maxByOrNull { lastPlayingAt[it.first.packageName] ?: 0L }
+        val paused = named.maxByOrNull { lastPlayingAt[it.first.packageName] ?: 0L }
+        val pinned = if (pin.isNotEmpty()) named.firstOrNull { it.first.packageName == pin } else null
         var ctrl: MediaController? = null
-        val pinned = if (pin.isNotEmpty()) controllers[pin] else null
         val t: Track? = when {
-            pinned != null -> { ctrl = pinned; fromController(pinned) }
+            pinned != null -> { ctrl = pinned.first; pinned.second }
             pin == "notification" && nt != null -> nt
             pin == "broadcast" && bt != null -> bt
-            playingSession != null -> { ctrl = playingSession; fromController(playingSession) }
+            playing != null -> { ctrl = playing.first; playing.second }
             nt?.playing == true -> nt
             bt?.playing == true -> bt
-            pausedSession != null -> { ctrl = pausedSession; fromController(pausedSession) }
-            nt != null -> nt
-            else -> bt
+            else -> {
+                // nothing says "playing": take whatever changed last (ZLink often doesn't say)
+                val pAt = paused?.let { lastPlayingAt[it.first.packageName] ?: 0L } ?: -1L
+                val nAt = if (nt != null) notifAt else -1L
+                val bAt = if (bt != null) bcAt else -1L
+                when (maxOf(pAt, nAt, bAt)) {
+                    -1L -> null
+                    nAt -> nt
+                    bAt -> bt
+                    else -> { ctrl = paused?.first; paused?.second }
+                }
+            }
         }
         currentController = ctrl
-        current = t?.takeIf { it.title.isNotEmpty() }
+        current = t
         version++
     }
 

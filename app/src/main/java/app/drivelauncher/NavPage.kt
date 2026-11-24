@@ -43,6 +43,9 @@ class NavPage(private val a: MainActivity, private val portrait: Boolean) {
     private val eta: TextView = a.label(18f, C.TEXT, F.semibold).tnum()
     private val side = a.vbox(10f)
     private val muteBtn = IconBtn(a, Ic.SPEAKER, 22f)
+    /** +, − and "back to me" while choosing where to go (drag the map to look around). */
+    private val mapCtl = a.vbox(10f)
+    private val recenter = IconBtn(a, Ic.LOCATE, 22f)
     private val overviewBtn = IconBtn(a, Ic.ROUTE, 22f)
 
     private var preview: Dest? = null
@@ -70,7 +73,20 @@ class NavPage(private val a: MainActivity, private val portrait: Boolean) {
     init {
         map.background = null
         map.showParking = false
+        map.pannable = true
+        map.zoom = 15
+        map.onPanned = { recenter.showIf(true) }
         view.addView(map, flp(MATCH, MATCH))
+        fun ctl(b: IconBtn, desc: String, click: () -> Unit) {
+            b.contentDescription = desc; b.circle = true; b.bgColor = C.FLOAT; b.fg = C.TEXT
+            b.setOnClickListener { click() }
+            mapCtl.addView(b, lp(S.i(56), S.i(56)))
+        }
+        ctl(recenter, "Back to my position") { map.mode = 0; map.fixed = null; recenter.showIf(false) }
+        ctl(IconBtn(a, Ic.PLUS, 22f), "Zoom in") { map.zoom = map.zoom + 1 }
+        ctl(IconBtn(a, Ic.MINUS, 22f), "Zoom out") { map.zoom = map.zoom - 1 }
+        recenter.showIf(false)
+        view.addView(mapCtl, flp(WRAP, WRAP, Gravity.END or Gravity.BOTTOM).apply { setMargins(0, 0, S.i(14), S.i(14)) })
 
         // ---- planning panel
         panel.background = cardBg(C.FLOAT)
@@ -167,7 +183,8 @@ class NavPage(private val a: MainActivity, private val portrait: Boolean) {
     /** Saved places and "nearby" searches. */
     fun showPlaces() {
         preview = null; previewRoute = null
-        map.route = null; map.mark = null; map.mode = 0
+        map.route = null; map.mark = null; map.mode = 0; map.fixed = null
+        recenter.showIf(false)
         list.removeAllViews()
         header("Your places")
         for (p in Places.saved()) {
@@ -232,6 +249,7 @@ class NavPage(private val a: MainActivity, private val portrait: Boolean) {
         header("Finding the route…")
         row(Ic.PIN, d.name, d.detail) {}
         map.fixed = doubleArrayOf(d.lat, d.lon); map.mode = 2; map.zoom = 15
+        recenter.showIf(true)
         val la = Gps.lat; val lo = Gps.lon; val br = if (Gps.speedKmh > 6f) Gps.bearing else null
         Thread {
             var why = ""
@@ -246,6 +264,7 @@ class NavPage(private val a: MainActivity, private val portrait: Boolean) {
                 if (r == null) { header("No route"); row(Ic.CLOSE, "Couldn't find a route", why) { showPlaces() }; return@runOnUiThread }
                 previewRoute = r
                 map.route = r.points; map.mode = 1
+                recenter.showIf(true)
                 header("Route")
                 row(Ic.PIN, d.name, d.detail) {}
                 list.addView(a.label(26f, C.TEXT, F.display).apply { text = "${Words.duration(r.seconds)} · ${Words.distance(r.meters)}" }.tnum(), lp(MATCH, WRAP))
@@ -269,13 +288,14 @@ class NavPage(private val a: MainActivity, private val portrait: Boolean) {
     fun update() {
         val driving = Guide.active
         panel.showIf(!driving)
+        mapCtl.showIf(!driving)
+        map.pannable = !driving
         turnBox.showIf(driving)
         etaBox.showIf(driving)
         side.showIf(driving)
         if (!Gps.lat.isNaN()) map.setPosition(Gps.lat, Gps.lon, Gps.bearing)
         if (!driving) {
             map.headingUp = false; map.carAt = 0.5f
-            if (map.mode == 0) map.zoom = 15
             if (Gps.lastFix != lastFix) { lastFix = Gps.lastFix; if (preview == null) refreshNote() }
             status.showIf(false)
             return

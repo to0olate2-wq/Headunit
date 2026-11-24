@@ -54,6 +54,43 @@ class TileMapView(ctx: Context) : View(ctx) {
     var carAt = 0.62f
     /** Point to mark (next turn), or null. */
     var mark: DoubleArray? = null
+    /** Drag with a finger to look around (then it stays there until [mode] is set back to 0). */
+    var pannable = false
+    /** Called when the owner drags the map. */
+    var onPanned: (() -> Unit)? = null
+    private var lastCLat = Double.NaN
+    private var lastCLon = Double.NaN
+    private var lastWorld = 0.0
+    private var downX = 0f
+    private var downY = 0f
+    private var dragging = false
+
+    override fun onTouchEvent(e: android.view.MotionEvent): Boolean {
+        if (!pannable) return super.onTouchEvent(e)
+        when (e.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN -> { downX = e.x; downY = e.y; dragging = false; parent?.requestDisallowInterceptTouchEvent(true) }
+            android.view.MotionEvent.ACTION_MOVE -> {
+                val dx = e.x - downX; val dy = e.y - downY
+                if (!dragging && kotlin.math.hypot(dx, dy) > S.p(12f)) dragging = true
+                if (dragging && !lastCLat.isNaN() && lastWorld > 0) {
+                    val nx = ux(lastCLon) - dx / lastWorld
+                    val ny = (uy(lastCLat) - dy / lastWorld).coerceIn(0.0, 1.0)
+                    val la = Math.toDegrees(Math.atan(Math.sinh(PI * (1 - 2 * ny))))
+                    val lo = ((nx * 360.0 - 180.0 + 540.0) % 360.0) - 180.0
+                    fixed = doubleArrayOf(la, lo); mode = 2
+                    downX = e.x; downY = e.y
+                    onPanned?.invoke()
+                }
+            }
+            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                parent?.requestDisallowInterceptTouchEvent(false)
+                if (!dragging) performClick()
+            }
+        }
+        return true
+    }
+
+    override fun performClick(): Boolean = super.performClick()
 
     private val tilePaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -121,13 +158,19 @@ class TileMapView(ctx: Context) : View(ctx) {
         val world = n * ts.toDouble()
         val x0 = ux(cLon) * world - ax
         val y0 = uy(cLat) * world - ay
+        lastCLat = cLat; lastCLon = cLon; lastWorld = world
         val rotate = headingUp && mode == 0
-        // when the map turns, the corners need tiles from further out
-        val pad = if (rotate) kotlin.math.hypot(w, h) else 0f
-        val tx0 = floor((x0 - pad) / ts).toInt()
-        val tx1 = floor((x0 + w + pad) / ts).toInt()
-        val ty0 = floor((y0 - pad) / ts).toInt()
-        val ty1 = floor((y0 + h + pad) / ts).toInt()
+        // when the map turns around the car, it needs the tiles within reach of the farthest corner (not more:
+        // too many tiles meant the offline map never finished drawing)
+        val tx0: Int; val tx1: Int; val ty0: Int; val ty1: Int
+        if (rotate) {
+            val reach = max(max(kotlin.math.hypot(ax, ay), kotlin.math.hypot(w - ax, ay)), max(kotlin.math.hypot(ax, h - ay), kotlin.math.hypot(w - ax, h - ay)))
+            tx0 = floor((x0 + ax - reach) / ts).toInt(); tx1 = floor((x0 + ax + reach) / ts).toInt()
+            ty0 = floor((y0 + ay - reach) / ts).toInt(); ty1 = floor((y0 + ay + reach) / ts).toInt()
+        } else {
+            tx0 = floor(x0 / ts).toInt(); tx1 = floor((x0 + w) / ts).toInt()
+            ty0 = floor(y0 / ts).toInt(); ty1 = floor((y0 + h) / ts).toInt()
+        }
         c.save()
         if (rotate) c.rotate(-bearing, ax, ay)
         var drawn = 0
@@ -216,7 +259,7 @@ class TileMapView(ctx: Context) : View(ctx) {
     }
 
     private fun tile(src: Src, z: Int, x: Int, y: Int): Bitmap? {
-        val key = if (src.render != null) "off${OfflineMaps.version}/$z/$x/$y" else "${src.id}/$z/$x/$y"
+        val key = if (src.render != null) "off${OfflineMaps.tag}/$z/$x/$y" else "${src.id}/$z/$x/$y"
         mem.get(key)?.let { return it }
         if (pending.contains(key)) return null
         val failedAt = failed[key]
@@ -226,9 +269,16 @@ class TileMapView(ctx: Context) : View(ctx) {
             try {
                 val f = File(cacheDir, key.replace('/', '_'))
                 var bmp: Bitmap? = null
-                if (src.render == null && f.exists()) bmp = BitmapFactory.decodeFile(f.path)
+                if (f.exists()) bmp = BitmapFactory.decodeFile(f.path) // offline tiles are kept too: drawn once, then quick
                 val render = src.render
-                if (render != null) bmp = render(z, x, y) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply { eraseColor(C.MAP_BG) }
+                if (bmp == null && render != null) {
+                    bmp = render(z, x, y)
+                    if (bmp != null) try {
+                        cacheDir.mkdirs()
+                        java.io.FileOutputStream(f).use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 100, out) }
+                    } catch (_: Exception) {}
+                    else bmp = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply { eraseColor(C.MAP_BG) }
+                }
                 if (bmp == null) {
                     val con = URL(src.url(z, x, y)).openConnection() as HttpURLConnection
                     con.connectTimeout = 8000
@@ -296,7 +346,7 @@ class TileMapView(ctx: Context) : View(ctx) {
         private val OFF_NIGHT = Src("offline", 19, "© OpenStreetMap contributors · offline map", true, { z, x, y -> OfflineMaps.render(z, x, y) }) { _, _, _ -> "" }
         @Volatile private var srcIdx = 0
         private val srcFails = AtomicInteger(0)
-        private val mem = LruCache<String, Bitmap>(90)
+        private val mem = LruCache<String, Bitmap>(140)
         private val pending: MutableSet<String> = Collections.synchronizedSet(HashSet())
         private val failed = ConcurrentHashMap<String, Long>()
         private val pool = Executors.newFixedThreadPool(3)

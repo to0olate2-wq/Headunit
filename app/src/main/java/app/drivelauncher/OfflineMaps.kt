@@ -51,6 +51,9 @@ object OfflineMaps {
     private var display: DisplayModel? = null
     @Volatile var version = 0
         private set
+    /** Changes when the map files change (names the kept tile pictures). */
+    @Volatile var tag = "0"
+        private set
     private var loadedKey = ""
 
     fun dir(ctx: Context): File = File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "maps").apply { mkdirs() }
@@ -69,6 +72,7 @@ object OfflineMaps {
         val key = fs.joinToString("|") { "${it.name}:${it.length()}" }
         if (key == loadedKey) return
         loadedKey = key
+        tag = Integer.toHexString(key.hashCode()) + "m" // m = Motorider style
         close()
         if (fs.isEmpty()) { version++; return }
         try {
@@ -76,7 +80,9 @@ object OfflineMaps {
             val multi = MultiMapDataStore(MultiMapDataStore.DataPolicy.RETURN_ALL)
             for (f in fs) try { multi.addMapDataStore(MapFile(f, "en"), false, false) } catch (e: Exception) { Diag.log("map ${f.name}: ${e.message}") }
             val dm = DisplayModel()
-            val rt = RenderThemeFuture(AndroidGraphicFactory.INSTANCE, MapsforgeThemes.DEFAULT, dm)
+            dm.setUserScaleFactor(1.15f) // a little bigger labels for a car screen
+            // "Motorider": the style made for driving (roads stand out)
+            val rt = RenderThemeFuture(AndroidGraphicFactory.INSTANCE, MapsforgeThemes.MOTORIDER, dm)
             Thread(rt).start()
             store = multi; display = dm; theme = rt
             renderer = DatabaseRenderer(multi, AndroidGraphicFactory.INSTANCE, InMemoryTileCache(32), TileBasedLabelStore(256), true, true, null)
