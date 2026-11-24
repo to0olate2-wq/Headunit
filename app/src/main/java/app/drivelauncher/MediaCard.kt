@@ -134,8 +134,13 @@ class MediaCard(private val a: MainActivity, private val big: Boolean, private v
             shown = MediaHub.version
             if (t == null) {
                 kicker.put("Music")
-                title.put("Nothing playing")
-                sub.put(if (MediaHub.accessGranted) "Play music on your phone (ZLink) or any app" else "Tap to allow music info (notification access)")
+                if (Projection.connected && MediaHub.accessGranted) {
+                    title.put("Phone connected")
+                    sub.put("${Projection.modeName().replaceFirstChar { it.uppercase() }} via ZLink · song details not shared yet")
+                } else {
+                    title.put("Nothing playing")
+                    sub.put(if (MediaHub.accessGranted) "Play music on your phone (ZLink) or any app" else "Tap to allow music info (notification access)")
+                }
                 src.put("")
                 art.set(null)
             } else {

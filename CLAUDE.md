@@ -91,6 +91,11 @@ in plain words, answer first. Owner's unit: TS10S (UIS7862S, 1280×720, reports 
   `carAt`, `mark`). `OfflineRoute` = rough A* over map ways (zoom 14 near ends, zoom 10 between; loose ends joined
   within 40 m). `NavPage.kt` = Page.NAV (search, places, preview, driving UI, `manageMaps`). Pref `navApp` "builtin"
   makes the Maps button / quick places open it. `NavTest` covers parsing, words, guidance, listing, offline graph.
+- `Projection.kt` (0.6.29): ZLink status broadcast (action `com.zjinnova.zlink`, extras `status`/`phoneMode`; idea
+  from TheCarLauncher / xcertplay READMEs, no code) → `connected`, `modeName()`; music card says "Phone connected" when no
+  song is shared; `NavHub.onProjection` shows ZLink notifications that read like turns (`looksLikeTurn`) as navigation;
+  split screen picks ZLink automatically while connected. Every ZLink broadcast is logged ("zlink says:") to learn
+  what the owner's ZLink shares. CarPlay/AA maps are video inside ZLink: turns only if ZLink posts them.
 - `Overlay` + `FloatPanel` (DriveService.kt): one draggable pill over other apps with speed (`bubble`), next turn
   (`floatTurn`) and mini player (`floatMusic`). `LiveScenes` (city/rain/highway) and `VideoBackground` (TextureView +
   MediaPlayer, persisted document URI `videoUri`) in Views.kt; background picker is a list in Settings → Look.

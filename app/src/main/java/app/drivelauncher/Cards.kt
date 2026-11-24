@@ -267,7 +267,7 @@ class MapCard(private val a: MainActivity, showTurn: Boolean) : Card {
             setOnClickListener { f() }
             col.addView(this, lp(S.i(44), S.i(44)))
         }
-        b(Ic.SPLIT, "Split screen with Maps") { a.splitScreen() }
+        b(Ic.SPLIT, "Split screen (Maps or phone)") { a.splitScreen() }
         b(Ic.PLUS, "Zoom in") { map.zoom = map.zoom + 1; Prefs.mapZoom = map.zoom }
         b(Ic.MINUS, "Zoom out") { map.zoom = map.zoom - 1; Prefs.mapZoom = map.zoom }
         view.addView(col, flp(WRAP, WRAP, Gravity.BOTTOM or Gravity.END).apply { rightMargin = S.i(12); bottomMargin = S.i(12) })

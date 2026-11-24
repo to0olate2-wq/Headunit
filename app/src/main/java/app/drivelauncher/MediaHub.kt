@@ -86,6 +86,7 @@ object MediaHub {
         if (app != null) { tryAttach(); return }
         app = ctx.applicationContext
         registerBroadcasts()
+        Projection.init(ctx)
         tryAttach()
     }
 
@@ -476,7 +477,8 @@ object MediaHub {
 
     fun sourceName(ctx: Context, t: Track): String {
         val label = Apps.label(ctx, t.pkg)
-        return if (t.pkg.lowercase().contains("zlink") || label.lowercase().contains("zlink")) "Phone via ZLink" else label
+        return if (t.pkg.lowercase().contains("zlink") || label.lowercase().contains("zlink"))
+            (if (Projection.connected && Projection.modeName() != "the phone") "Phone · ${Projection.modeName()}" else "Phone via ZLink") else label
     }
 
     fun describe(ctx: Context): String {
@@ -491,6 +493,7 @@ object MediaHub {
         }
         notifTrack?.let { sb.append("Notification track: ${it.pkg} ${it.title} / ${it.artist} playing=${it.playing}\n") }
         bcTrack?.let { sb.append("Broadcast track: ${it.pkg} ${it.title} / ${it.artist} playing=${it.playing}\n") }
+        sb.append(Projection.describe(ctx)).append('\n')
         val c = current
         sb.append("Showing: ").append(if (c == null) "nothing" else "${c.title} (${c.via}, ${c.pkg})")
         return sb.toString()
@@ -515,7 +518,7 @@ object NavHub {
     /** Returns true if the notification belonged to a navigation app. */
     fun onPosted(ctx: Context, sbn: StatusBarNotification): Boolean {
         val p = sbn.packageName ?: return false
-        if (p !in NAV_PKGS) return false
+        if (p !in NAV_PKGS) return onProjection(ctx, sbn)
         val n = sbn.notification ?: return true
         if (Guide.active) return true // the built-in navigation is guiding: don't mix in another app's turns
         if (n.flags and Notification.FLAG_ONGOING_EVENT == 0) return true
@@ -530,15 +533,45 @@ object NavHub {
         return true
     }
 
-    fun onRemoved(p: String) {
-        if (p == pkg && active) { active = false; icon = null; version++ }
+    fun onRemoved(p: String, id: Int? = null) {
+        if (p != pkg || !active) return
+        if (id != null && Projection.isProjection(p) && id != projId) return // ZLink's music notification, not the turn
+        active = false; icon = null; version++
     }
+
+    /**
+     * ZLink (CarPlay / Android Auto): when its notification reads like a turn ("300 m · Turn right onto…")
+     * it is shown as navigation instead of a song. Returns true when it was taken as navigation.
+     */
+    private fun onProjection(ctx: Context, sbn: StatusBarNotification): Boolean {
+        val p = sbn.packageName ?: return false
+        if (!Projection.isProjection(p) || Guide.active) return false
+        val n = sbn.notification ?: return false
+        val ex = n.extras ?: return false
+        if ((ex.getString(Notification.EXTRA_TEMPLATE) ?: "").contains("MediaStyle")) return false
+        val t = ex.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
+        val x = (ex.getCharSequence(Notification.EXTRA_TEXT) ?: ex.getCharSequence(Notification.EXTRA_BIG_TEXT))?.toString() ?: ""
+        if (!Projection.looksLikeTurn(t, x)) {
+            // a non-turn update from the same notification ends the shown turn (route finished)
+            if (pkg == p && active && sbn.id == projId) { active = false; icon = null; version++ }
+            return false
+        }
+        title = t; text = x
+        sub = ex.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
+        icon = MediaHub.largeIcon(ctx, n)
+        pkg = p; projId = sbn.id
+        if (!active) Diag.log("navigation from $p: $t | $x")
+        active = true
+        version++
+        return true
+    }
+    private var projId = 0
 
     fun appName(ctx: Context): String = when (pkg) {
         "com.google.android.apps.maps" -> "Google Maps"
         "com.waze" -> "Waze"
         "com.here.app.maps" -> "HERE WeGo"
         Guide.PKG -> "Drive Launcher"
-        else -> Apps.label(ctx, pkg)
+        else -> if (Projection.isProjection(pkg)) Projection.modeName().let { if (it == "the phone") "Phone (ZLink)" else it } else Apps.label(ctx, pkg)
     }
 }

@@ -128,7 +128,7 @@ class Dock(private val a: MainActivity, portrait: Boolean) {
             slot == 0 -> { val z = Apps.findZlink(a) ?: return null; btn(Ic.LINK, "ZLink", LINK) { Apps.launch(a, z) } }
             slot == 1 -> btn(Ic.PIN, "Maps", MAPS) { a.openNav() }
             slot == 2 -> btn(Ic.MUSIC, "Music app", MUSIC) { MediaHub.openSourceApp(a) }
-            else -> btn(Ic.SPLIT, "Split screen with Maps", SPLIT) { a.splitScreen() }
+            else -> btn(Ic.SPLIT, "Split screen (Maps or phone)", SPLIT) { a.splitScreen() }
         }
         b.setOnLongClickListener {
             a.chooseApp("Dock button ${slot + 1}", listOf("Default" to "", "Empty" to "none")) { pkg ->

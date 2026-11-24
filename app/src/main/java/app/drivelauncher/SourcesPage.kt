@@ -275,7 +275,7 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         row(drive, "Waking from sleep and opening apps from the background need \"Display over other apps\"",
             dynButton({ if (Overlay.allowed(a)) "Allowed" else "Allow" }) { a.openOverlaySettings() })
         row(drive, "Split screen app (next to the dashboard)", dynButton({ a.splitTarget()?.let { Apps.label(a, it) } ?: "None" }) {
-            a.chooseApp("Split screen app", listOf("Automatic (Maps)" to "")) { Prefs.splitApp = it }
+            a.chooseApp("Split screen app", listOf("Automatic (phone via ZLink when connected, else Maps)" to "")) { Prefs.splitApp = it }
         })
         pinBtn.setOnClickListener { val l = MediaHub.cycleSource(a); pinBtn.put("Source: $l") }
         row(drive, "Music source (Auto picks whatever is playing)", pinBtn)
@@ -398,7 +398,6 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         (if (!Gps.permission) "no permission" else if (Gps.fresh) fmt("fix ±%.0f m, %d/%d satellites", Gps.accuracy, Gps.satsUsed, Gps.satsSeen) else "no fix yet (${Gps.satsSeen} satellites in view)") +
         "\nRoad limit: " + (RoadLimit.signNumber()?.let { "$it${if (RoadLimit.postedMph) " mph" else ""} ${RoadLimit.road}" } ?: "unknown") + " (" + RoadLimit.status + ")" +
         "\nNavigation: " + (if (NavHub.active) "${NavHub.pkg}: ${NavHub.title} | ${NavHub.text} | ${NavHub.sub}" else "no active route") +
-        "\nZLink app: " + (Apps.findZlink(a) ?: "not found") +
         "\nDisplay over other apps: " + (if (Overlay.allowed(a)) "allowed" else "not allowed") +
         ", modify system settings: " + (if (ThemeMgr.canWriteSettings(a)) "allowed" else "not allowed") +
         "\nAuto-start: " + Prefs.autoApp + " → " + (AutoStart.target(a) ?: "nothing") + ", resume music " + Prefs.autoPlay +
@@ -417,13 +416,14 @@ class SourcesPage(private val a: MainActivity, portrait: Boolean, private val w:
         when {
             !MediaHub.accessGranted -> music.set("Needs access", 1, "Allow notification access so songs from ZLink, Bluetooth, Anghami or Spotify can be shown.", "Allow access")
             t != null -> music.set("Active", 0, "Now: ${t.title}${if (t.artist.isNotEmpty()) " — " + t.artist else ""}\nFrom ${MediaHub.sourceName(a, t)} (${t.via}).", "Notification access")
+            Projection.connected -> music.set("Phone connected", 2, "${Projection.modeName()} is connected through ZLink, but ZLink hasn't shared the song yet. The buttons still send play / next to the phone.", "Notification access")
             else -> music.set("Idle", 2, "Nothing playing right now. Start music on your phone through ZLink or Bluetooth and it appears here.", "Notification access")
         }
         // Navigation
         when {
             !MediaHub.accessGranted -> nav.set("Needs access", 1, "Uses the same notification access as Music.", "Allow access")
             NavHub.active -> nav.set("Route active", 0, "${NavHub.title} ${NavHub.text}".trim(), "Open maps")
-            else -> nav.set("No route", 2, "Start a route in the built-in navigation, or in Google Maps or Waze on this unit, to show turns here. Navigation inside ZLink stays on the ZLink screen.", "Open maps")
+            else -> nav.set("No route", 2, "Start a route in the built-in navigation, or in Google Maps or Waze on this unit, to show turns here. Turns from CarPlay / Android Auto show here only when ZLink shares them (see the log).", "Open maps")
         }
         // OBD
         when (Obd.state) {

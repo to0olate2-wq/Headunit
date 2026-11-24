@@ -205,7 +205,7 @@ class MediaListenerService : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         val p = sbn?.packageName ?: return
         PhoneHub.onRemoved(sbn.key)
-        NavHub.onRemoved(p)
+        NavHub.onRemoved(p, sbn.id)
         MediaHub.onRemoved(p)
     }
 

@@ -166,4 +166,30 @@ class NavTest {
         assertEquals("Turn right onto Side Street", Words.instruction(turn))
         assertEquals("arrive", r.maneuvers.last().type)
     }
+
+    /** ZLink (CarPlay / Android Auto): status broadcast and turn-like notification text. */
+    @Test fun zlinkProjection() {
+        assertTrue(Projection.isProjection("com.zjinnova.zlink"))
+        assertFalse(Projection.isProjection("com.anghami"))
+        assertTrue(Projection.isConnected("CONNECTED"))
+        assertFalse(Projection.isConnected("DISCONNECT"))
+        assertFalse(Projection.isConnected("DISCONNECTED"))
+        assertEquals("CarPlay", Projection.modeName("carplay_wireless"))
+        assertEquals("Android Auto", Projection.modeName("auto_wired"))
+        val i = android.content.Intent(Projection.ACTION).putExtra("status", "CONNECTED").putExtra("phoneMode", "carplay_wireless")
+        Projection.onStatus(i)
+        assertTrue(Projection.connected)
+        Projection.onStatus(android.content.Intent(Projection.ACTION).putExtra("status", "PHONE_CALL_OFF"))
+        assertTrue("a call ending doesn't mean the phone left", Projection.connected)
+        Projection.onStatus(android.content.Intent(Projection.ACTION).putExtra("status", "DISCONNECT"))
+        assertFalse(Projection.connected)
+        // turns, not songs
+        assertTrue(Projection.looksLikeTurn("300 m", "Turn right onto Sheikh Zayed Rd"))
+        assertTrue(Projection.looksLikeTurn("Take the exit", "1.2 km · ETA 14:05"))
+        assertTrue(Projection.looksLikeTurn("12 min · 8.4 km", "Arrival 14:05"))
+        assertFalse(Projection.looksLikeTurn("500 Miles", "The Proclaimers"))
+        assertFalse(Projection.looksLikeTurn("Blinding Lights", "The Weeknd"))
+        assertFalse(Projection.looksLikeTurn("ZLink", "Connected"))
+        Projection.setForTest("", "")
+    }
 }

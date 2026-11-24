@@ -742,7 +742,10 @@ open class MainActivity : Activity() {
         }
     }
 
+    /** The app shown beside the dashboard: the chosen one, else the phone (ZLink) while CarPlay / Android Auto is
+     *  connected, so its map and music stay visible next to speed and the car, else Maps. */
     fun splitTarget(): String? = Prefs.splitApp.takeIf { it.isNotEmpty() && Apps.canLaunch(this, it) }
+        ?: (if (Projection.connected) Apps.findZlink(this) else null)
         ?: Apps.findMaps(this) ?: Apps.findZlink(this)
 
     private fun launchSplitApp() {
@@ -753,7 +756,7 @@ open class MainActivity : Activity() {
         handler.postDelayed({
             val ok = isInMultiWindowMode
             Diag.log("split screen ${if (ok) "works" else "not available on this unit"}")
-            if (!ok) Toast.makeText(applicationContext, "This unit doesn't allow split screen — opened Maps full screen.", Toast.LENGTH_LONG).show()
+            if (!ok) Toast.makeText(applicationContext, "This unit doesn't allow split screen — opened ${Apps.label(this, pkg)} full screen.", Toast.LENGTH_LONG).show()
         }, 2500)
     }
 
